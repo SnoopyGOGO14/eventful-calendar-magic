@@ -5,6 +5,8 @@ import { NoteModal } from './NoteModal';
 import { CalendarHeader } from './CalendarHeader';
 import { useCalendarData } from '@/hooks/useCalendarData';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { syncEvents } from '@/utils/syncEvents';
 
 export interface Event {
   title: string;
@@ -15,7 +17,17 @@ export interface Event {
 export const Calendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const { events, isLoading } = useCalendarData();
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncEvents('10HjBOsJemFkmRbu-EGG0BnFUKAh0FMhPWsvjuSlGokw');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -43,10 +55,19 @@ export const Calendar = () => {
   return (
     <div className="min-h-screen bg-[#1B3A4B] p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <CalendarHeader 
-          currentDate={currentDate} 
-          onDateChange={setCurrentDate}
-        />
+        <div className="flex justify-between items-center mb-4">
+          <CalendarHeader 
+            currentDate={currentDate} 
+            onDateChange={setCurrentDate}
+          />
+          <Button 
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="bg-green-500 hover:bg-green-600"
+          >
+            {isSyncing ? 'Syncing...' : 'Sync with Google Sheets'}
+          </Button>
+        </div>
         
         <div className="grid grid-cols-7 gap-1 mt-4">
           {['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].map((day) => (
