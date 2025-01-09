@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { google } from 'googleapis';
+import { google } from 'https://googleapis.deno.dev/v118/sheets/v4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,13 +15,18 @@ const handleCors = (req: Request) => {
 
 // Initialize Google Sheets API client
 const initGoogleSheets = async () => {
-  const credentials = JSON.parse(Deno.env.get('GOOGLE_SHEETS_CREDENTIALS') || '{}');
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
+  try {
+    const credentials = JSON.parse(Deno.env.get('GOOGLE_SHEETS_CREDENTIALS') || '{}');
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
 
-  return google.sheets({ version: 'v4', auth });
+    return google.sheets({ version: 'v4', auth });
+  } catch (error) {
+    console.error('Error initializing Google Sheets:', error);
+    throw error;
+  }
 };
 
 // Initialize Supabase client
