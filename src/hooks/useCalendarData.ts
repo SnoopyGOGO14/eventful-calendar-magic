@@ -22,8 +22,8 @@ export const useCalendarData = () => {
         const transformedData = (data || []).map(item => ({
           date: item.date,
           title: item.title,
-          status: item.status,
-          isRecurring: item.is_recurring // Map is_recurring to isRecurring
+          status: (item.status as "confirmed" | "pending" | "cancelled") || "pending",
+          isRecurring: item.is_recurring
         }));
 
         setEvents(transformedData);
