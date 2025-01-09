@@ -36,13 +36,21 @@ serve(async (req) => {
       throw new Error('Google Sheets credentials not found')
     }
 
+    console.log('Raw credentials string:', credentialsStr)
+
     let credentials;
     try {
       credentials = JSON.parse(credentialsStr)
-      console.log('Successfully parsed Google credentials')
+      console.log('Credentials parsed successfully. Available keys:', Object.keys(credentials))
     } catch (error) {
-      console.error('Error parsing Google credentials:', error)
-      throw new Error('Invalid Google Sheets credentials format')
+      console.error('Error parsing credentials:', error)
+      throw new Error(`Failed to parse credentials: ${error.message}`)
+    }
+
+    // Verify required credential fields
+    if (!credentials.access_token && !credentials.client_email) {
+      console.error('Missing required credential fields')
+      throw new Error('Invalid credentials: missing required fields')
     }
 
     // Make a direct fetch request to Google Sheets API
