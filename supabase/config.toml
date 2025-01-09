@@ -6,3 +6,4 @@ port = 54321
 schemas = ["public", "storage", "graphql_public"]
 
 [[functions]]
+name = "sync-events"

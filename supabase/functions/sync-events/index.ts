@@ -1,53 +1,24 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { google } from 'https://googleapis.deno.dev/v118/sheets/v4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Handle CORS preflight requests
-const handleCors = (req: Request) => {
+serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
-}
-
-// Initialize Google Sheets API client
-const initGoogleSheets = async () => {
-  try {
-    const credentials = JSON.parse(Deno.env.get('GOOGLE_SHEETS_CREDENTIALS') || '{}')
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    })
-
-    return google.sheets({ version: 'v4', auth })
-  } catch (error) {
-    console.error('Error initializing Google Sheets:', error)
-    throw error
-  }
-}
-
-// Initialize Supabase client
-const initSupabase = () => {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
-
-serve(async (req) => {
-  // Handle CORS
-  const corsResponse = handleCors(req)
-  if (corsResponse) return corsResponse
 
   try {
     console.log('Starting events sync...')
     
-    // Initialize clients
-    const sheets = await initGoogleSheets()
-    const supabase = initSupabase()
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get the spreadsheet ID from the request body
     const { spreadsheetId } = await req.json()
@@ -57,15 +28,26 @@ serve(async (req) => {
     }
 
     console.log(`Using spreadsheet ID: ${spreadsheetId}`)
+
+    // Initialize Google Sheets API client
+    const credentials = JSON.parse(Deno.env.get('GOOGLE_SHEETS_CREDENTIALS') || '{}')
     
-    // Fetch data from Google Sheets
-    const range = 'Sheet1!A2:D' // Assumes headers in row 1, data starts row 2
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-    })
-    
-    const rows = response.data.values || []
+    // Make a direct fetch request to Google Sheets API
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A2:D`,
+      {
+        headers: {
+          'Authorization': `Bearer ${credentials.access_token}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Google Sheets API error: ${await response.text()}`)
+    }
+
+    const data = await response.json()
+    const rows = data.values || []
     console.log(`Found ${rows.length} rows in Google Sheets`)
 
     // Process each row and prepare for Supabase
