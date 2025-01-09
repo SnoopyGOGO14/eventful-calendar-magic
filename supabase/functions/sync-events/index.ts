@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -15,53 +14,41 @@ serve(async (req) => {
   try {
     console.log('Starting events sync...')
     
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get the spreadsheet ID from the request body
     const { spreadsheetId } = await req.json()
-    
     if (!spreadsheetId) {
       throw new Error('Spreadsheet ID is required')
     }
 
-    console.log(`Using spreadsheet ID: ${spreadsheetId}`)
-
-    // Get and parse Google Sheets credentials
     const credentialsStr = Deno.env.get('Google sheets Json')
     if (!credentialsStr) {
-      console.error('Google Sheets credentials not found')
       throw new Error('Google Sheets credentials not found')
     }
 
-    console.log('Attempting to parse credentials...')
-    
     let credentials;
     try {
       credentials = JSON.parse(credentialsStr)
-      console.log('Available credential fields:', Object.keys(credentials))
+      // Log the service account email - this is what you need to share the sheet with
+      console.log('Service Account Email:', credentials.client_email)
     } catch (error) {
-      console.error('Failed to parse credentials JSON:', error)
       throw new Error('Invalid credentials format: ' + error.message)
     }
 
-    // Verify required credential fields for service account
     if (!credentials.client_email || !credentials.private_key) {
-      console.error('Missing required service account fields')
       throw new Error('Invalid credentials: missing client_email or private_key')
     }
 
-    // Clean up private key - replace escaped newlines with actual newlines
     const privateKey = credentials.private_key.replace(/\\n/g, '\n')
-
-    // Create JWT token for authentication
     const now = Math.floor(Date.now() / 1000)
+    
     const jwtHeader = btoa(JSON.stringify({
       alg: 'RS256',
       typ: 'JWT'
     }))
+    
     const jwtClaimSet = btoa(JSON.stringify({
       iss: credentials.client_email,
       scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
@@ -70,19 +57,16 @@ serve(async (req) => {
       iat: now
     }))
 
-    // Prepare the signing input
     const signInput = `${jwtHeader}.${jwtClaimSet}`
     const encoder = new TextEncoder()
     const signBytes = encoder.encode(signInput)
 
-    // Import the private key for signing
     const keyImportParams = {
       name: 'RSASSA-PKCS1-v1_5',
       hash: { name: 'SHA-256' },
     }
 
     try {
-      console.log('Attempting to import private key...')
       const pemHeader = '-----BEGIN PRIVATE KEY-----'
       const pemFooter = '-----END PRIVATE KEY-----'
       const pemContents = privateKey
@@ -104,22 +88,15 @@ serve(async (req) => {
         ['sign']
       )
 
-      console.log('Private key imported successfully')
-
-      // Sign the JWT
       const signature = await crypto.subtle.sign(
         keyImportParams.name,
         cryptoKey,
         signBytes
       )
 
-      // Convert signature to base64
       const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
       const jwt = `${signInput}.${signatureBase64}`
 
-      console.log('JWT created successfully')
-
-      // Exchange JWT for access token
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
@@ -133,13 +110,11 @@ serve(async (req) => {
 
       if (!tokenResponse.ok) {
         const error = await tokenResponse.text()
-        console.error('Token exchange failed:', error)
         throw new Error('Failed to get access token: ' + error)
       }
 
       const { access_token } = await tokenResponse.json()
 
-      // Make request to Google Sheets API
       console.log('Fetching data from Google Sheets...')
       const response = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A2:D`,
@@ -152,7 +127,6 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Google Sheets API error:', errorText)
         throw new Error(`Google Sheets API error: ${errorText}`)
       }
 
@@ -160,15 +134,13 @@ serve(async (req) => {
       const rows = data.values || []
       console.log(`Found ${rows.length} rows in Google Sheets`)
 
-      // Process each row and prepare for Supabase
       const events = rows.map(row => ({
-        date: row[0], // Date
-        title: row[1], // Title
-        status: row[2]?.toLowerCase() || 'pending', // Status
-        is_recurring: row[3]?.toLowerCase() === 'true', // Is Recurring
+        date: row[0],
+        title: row[1],
+        status: row[2]?.toLowerCase() || 'pending',
+        is_recurring: row[3]?.toLowerCase() === 'true',
       }))
 
-      // Clear existing events and insert new ones
       console.log('Clearing existing events...')
       const { error: deleteError } = await supabase
         .from('events')
@@ -176,7 +148,6 @@ serve(async (req) => {
         .neq('id', '00000000-0000-0000-0000-000000000000')
 
       if (deleteError) {
-        console.error('Error deleting existing events:', deleteError)
         throw new Error(`Error deleting existing events: ${deleteError.message}`)
       }
 
@@ -186,7 +157,6 @@ serve(async (req) => {
         .insert(events)
 
       if (insertError) {
-        console.error('Error inserting new events:', insertError)
         throw new Error(`Error inserting new events: ${insertError.message}`)
       }
 
