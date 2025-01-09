@@ -23,21 +23,23 @@ serve(async (req) => {
       throw new Error('Spreadsheet ID is required')
     }
 
-    const credentialsStr = Deno.env.get('Google sheets Json')
+    const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS')
     if (!credentialsStr) {
+      console.error('Google Sheets credentials not found in environment')
       throw new Error('Google Sheets credentials not found')
     }
 
     let credentials;
     try {
       credentials = JSON.parse(credentialsStr)
-      // Log the service account email - this is what you need to share the sheet with
       console.log('Service Account Email:', credentials.client_email)
     } catch (error) {
+      console.error('Error parsing credentials:', error)
       throw new Error('Invalid credentials format: ' + error.message)
     }
 
     if (!credentials.client_email || !credentials.private_key) {
+      console.error('Missing required credential fields')
       throw new Error('Invalid credentials: missing client_email or private_key')
     }
 
@@ -110,6 +112,7 @@ serve(async (req) => {
 
       if (!tokenResponse.ok) {
         const error = await tokenResponse.text()
+        console.error('Token response error:', error)
         throw new Error('Failed to get access token: ' + error)
       }
 
@@ -127,6 +130,7 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text()
+        console.error('Google Sheets API error:', errorText)
         throw new Error(`Google Sheets API error: ${errorText}`)
       }
 
@@ -148,6 +152,7 @@ serve(async (req) => {
         .neq('id', '00000000-0000-0000-0000-000000000000')
 
       if (deleteError) {
+        console.error('Error deleting events:', deleteError)
         throw new Error(`Error deleting existing events: ${deleteError.message}`)
       }
 
@@ -157,6 +162,7 @@ serve(async (req) => {
         .insert(events)
 
       if (insertError) {
+        console.error('Error inserting events:', insertError)
         throw new Error(`Error inserting new events: ${insertError.message}`)
       }
 
