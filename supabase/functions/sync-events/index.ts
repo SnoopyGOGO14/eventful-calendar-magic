@@ -43,12 +43,18 @@ Deno.serve(async (req) => {
     // Initialize clients
     const sheets = await initGoogleSheets();
     const supabase = initSupabase();
+
+    // Get the spreadsheet ID from the request body
+    const { spreadsheetId } = await req.json();
     
-    // Replace with your actual spreadsheet ID and range
-    const spreadsheetId = '1234567890'; // You'll need to provide this
-    const range = 'Sheet1!A2:E'; // Adjust based on your sheet structure
+    if (!spreadsheetId) {
+      throw new Error('Spreadsheet ID is required');
+    }
+
+    console.log(`Using spreadsheet ID: ${spreadsheetId}`);
     
     // Fetch data from Google Sheets
+    const range = 'Sheet1!A2:D'; // Assumes headers in row 1, data starts row 2
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range,
@@ -59,17 +65,17 @@ Deno.serve(async (req) => {
 
     // Process each row and prepare for Supabase
     const events = rows.map(row => ({
-      date: row[0], // Assuming first column is date
-      title: row[1], // Assuming second column is title
-      status: row[2], // Assuming third column is status
-      is_recurring: row[3] === 'true', // Assuming fourth column is is_recurring
+      date: row[0], // Date
+      title: row[1], // Title
+      status: row[2], // Status
+      is_recurring: row[3]?.toLowerCase() === 'true', // Is Recurring
     }));
 
     // Clear existing events and insert new ones
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`);

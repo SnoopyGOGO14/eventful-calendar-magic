@@ -18,7 +18,15 @@ export const useCalendarData = () => {
           return;
         }
 
-        setEvents(data || []);
+        // Transform the data to match the Event type
+        const transformedData = (data || []).map(item => ({
+          date: item.date,
+          title: item.title,
+          status: item.status,
+          isRecurring: item.is_recurring // Map is_recurring to isRecurring
+        }));
+
+        setEvents(transformedData);
       } catch (error) {
         console.error('Error in fetchEvents:', error);
       } finally {
