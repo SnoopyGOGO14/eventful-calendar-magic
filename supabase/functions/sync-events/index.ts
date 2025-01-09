@@ -29,10 +29,27 @@ serve(async (req) => {
 
     console.log(`Using spreadsheet ID: ${spreadsheetId}`)
 
-    // Initialize Google Sheets API client
-    const credentials = JSON.parse(Deno.env.get('GOOGLE_SHEETS_CREDENTIALS') || '{}')
+    // Get and parse Google Sheets credentials
+    const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS')
+    if (!credentialsStr) {
+      throw new Error('Google Sheets credentials not found')
+    }
+
+    let credentials;
+    try {
+      credentials = JSON.parse(credentialsStr)
+      console.log('Successfully parsed Google credentials')
+    } catch (error) {
+      console.error('Error parsing Google credentials:', error)
+      throw new Error('Invalid Google Sheets credentials format')
+    }
+
+    if (!credentials.access_token) {
+      throw new Error('Access token not found in credentials')
+    }
     
     // Make a direct fetch request to Google Sheets API
+    console.log('Fetching data from Google Sheets...')
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A2:D`,
       {
@@ -43,7 +60,9 @@ serve(async (req) => {
     )
 
     if (!response.ok) {
-      throw new Error(`Google Sheets API error: ${await response.text()}`)
+      const errorText = await response.text()
+      console.error('Google Sheets API error:', errorText)
+      throw new Error(`Google Sheets API error: ${errorText}`)
     }
 
     const data = await response.json()
@@ -59,20 +78,24 @@ serve(async (req) => {
     }))
 
     // Clear existing events and insert new ones
+    console.log('Clearing existing events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000')
 
     if (deleteError) {
+      console.error('Error deleting existing events:', deleteError)
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
     }
 
+    console.log('Inserting new events...')
     const { error: insertError } = await supabase
       .from('events')
       .insert(events)
 
     if (insertError) {
+      console.error('Error inserting new events:', insertError)
       throw new Error(`Error inserting new events: ${insertError.message}`)
     }
 
