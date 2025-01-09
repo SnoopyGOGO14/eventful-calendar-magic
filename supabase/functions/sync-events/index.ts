@@ -53,6 +53,9 @@ serve(async (req) => {
       throw new Error('Invalid credentials: missing client_email or private_key')
     }
 
+    // Clean up private key - replace escaped newlines with actual newlines
+    const privateKey = credentials.private_key.replace(/\\n/g, '\n')
+
     // Create JWT token for authentication
     const header = {
       alg: 'RS256',
@@ -74,20 +77,24 @@ serve(async (req) => {
     const claimB64 = btoa(JSON.stringify(claim))
     const signatureInput = `${headerB64}.${claimB64}`
 
+    // Import the private key with proper formatting
+    const keyData = new TextEncoder().encode(privateKey)
+    const algorithm = {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: { name: 'SHA-256' }
+    }
+
     // Sign the JWT
     const key = await crypto.subtle.importKey(
       'pkcs8',
-      new TextEncoder().encode(credentials.private_key),
-      {
-        name: 'RSASSA-PKCS1-v1_5',
-        hash: 'SHA-256'
-      },
+      keyData,
+      algorithm,
       false,
       ['sign']
     )
 
     const signature = await crypto.subtle.sign(
-      'RSASSA-PKCS1-v1_5',
+      algorithm.name,
       key,
       encoder.encode(signatureInput)
     )
