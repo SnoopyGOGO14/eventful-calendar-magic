@@ -36,31 +36,92 @@ serve(async (req) => {
       throw new Error('Google Sheets credentials not found')
     }
 
-    console.log('Raw credentials string:', credentialsStr)
-
+    console.log('Attempting to parse credentials...')
+    
     let credentials;
     try {
       credentials = JSON.parse(credentialsStr)
-      console.log('Credentials parsed successfully. Available keys:', Object.keys(credentials))
+      console.log('Available credential fields:', Object.keys(credentials))
     } catch (error) {
-      console.error('Error parsing credentials:', error)
-      throw new Error(`Failed to parse credentials: ${error.message}`)
+      console.error('Failed to parse credentials JSON:', error)
+      throw new Error('Invalid credentials format: ' + error.message)
     }
 
-    // Verify required credential fields
-    if (!credentials.access_token && !credentials.client_email) {
-      console.error('Missing required credential fields')
-      throw new Error('Invalid credentials: missing required fields')
+    // Verify required credential fields for service account
+    if (!credentials.client_email || !credentials.private_key) {
+      console.error('Missing required service account fields')
+      throw new Error('Invalid credentials: missing client_email or private_key')
     }
 
-    // Make a direct fetch request to Google Sheets API
+    // Create JWT token for authentication
+    const header = {
+      alg: 'RS256',
+      typ: 'JWT'
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+    const claim = {
+      iss: credentials.client_email,
+      scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now
+    }
+
+    // Encode JWT components
+    const encoder = new TextEncoder()
+    const headerB64 = btoa(JSON.stringify(header))
+    const claimB64 = btoa(JSON.stringify(claim))
+    const signatureInput = `${headerB64}.${claimB64}`
+
+    // Sign the JWT
+    const key = await crypto.subtle.importKey(
+      'pkcs8',
+      new TextEncoder().encode(credentials.private_key),
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256'
+      },
+      false,
+      ['sign']
+    )
+
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5',
+      key,
+      encoder.encode(signatureInput)
+    )
+
+    const jwt = `${headerB64}.${claimB64}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`
+
+    // Exchange JWT for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt
+      })
+    })
+
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.text()
+      console.error('Token exchange failed:', error)
+      throw new Error('Failed to get access token: ' + error)
+    }
+
+    const { access_token } = await tokenResponse.json()
+
+    // Make request to Google Sheets API
     console.log('Fetching data from Google Sheets...')
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A2:D`,
       {
         headers: {
-          'Authorization': `Bearer ${credentials.access_token}`,
-        },
+          'Authorization': `Bearer ${access_token}`
+        }
       }
     )
 
