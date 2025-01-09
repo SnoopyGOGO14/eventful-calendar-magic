@@ -29,18 +29,22 @@ serve(async (req) => {
       throw new Error('Google Sheets credentials not found')
     }
 
-    let credentials;
+    console.log('Attempting to parse credentials...')
+    let credentials
     try {
+      // Try to parse the credentials string
       credentials = JSON.parse(credentialsStr)
-      console.log('Service Account Email:', credentials.client_email)
+      
+      // Validate required fields
+      if (!credentials.client_email || !credentials.private_key) {
+        throw new Error('Missing required fields in credentials')
+      }
+      
+      console.log('Successfully parsed credentials. Service Account Email:', credentials.client_email)
     } catch (error) {
-      console.error('Error parsing credentials:', error)
-      throw new Error('Invalid credentials format: ' + error.message)
-    }
-
-    if (!credentials.client_email || !credentials.private_key) {
-      console.error('Missing required credential fields')
-      throw new Error('Invalid credentials: missing client_email or private_key')
+      console.error('Raw credentials string:', credentialsStr)
+      console.error('Credentials parsing error:', error)
+      throw new Error(`Invalid credentials format: ${error.message}`)
     }
 
     const privateKey = credentials.private_key.replace(/\\n/g, '\n')
@@ -63,6 +67,8 @@ serve(async (req) => {
     const encoder = new TextEncoder()
     const signBytes = encoder.encode(signInput)
 
+    console.log('Preparing to sign JWT...')
+
     const keyImportParams = {
       name: 'RSASSA-PKCS1-v1_5',
       hash: { name: 'SHA-256' },
@@ -82,6 +88,7 @@ serve(async (req) => {
         binaryKeyBytes[i] = binaryKey.charCodeAt(i)
       }
 
+      console.log('Importing private key...')
       const cryptoKey = await crypto.subtle.importKey(
         'pkcs8',
         binaryKeyBytes,
@@ -90,6 +97,7 @@ serve(async (req) => {
         ['sign']
       )
 
+      console.log('Signing JWT...')
       const signature = await crypto.subtle.sign(
         keyImportParams.name,
         cryptoKey,
@@ -99,6 +107,7 @@ serve(async (req) => {
       const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
       const jwt = `${signInput}.${signatureBase64}`
 
+      console.log('Getting access token...')
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
@@ -187,7 +196,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        details: error instanceof Error ? error.stack : undefined
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
