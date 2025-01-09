@@ -6,4 +6,3 @@ port = 54321
 schemas = ["public", "storage", "graphql_public"]
 
 [[functions]]
-verify_jwt = false
