@@ -57,130 +57,153 @@ serve(async (req) => {
     const privateKey = credentials.private_key.replace(/\\n/g, '\n')
 
     // Create JWT token for authentication
-    const header = {
+    const now = Math.floor(Date.now() / 1000)
+    const jwtHeader = btoa(JSON.stringify({
       alg: 'RS256',
       typ: 'JWT'
-    }
-
-    const now = Math.floor(Date.now() / 1000)
-    const claim = {
+    }))
+    const jwtClaimSet = btoa(JSON.stringify({
       iss: credentials.client_email,
       scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
       aud: 'https://oauth2.googleapis.com/token',
       exp: now + 3600,
       iat: now
-    }
-
-    // Encode JWT components
-    const encoder = new TextEncoder()
-    const headerB64 = btoa(JSON.stringify(header))
-    const claimB64 = btoa(JSON.stringify(claim))
-    const signatureInput = `${headerB64}.${claimB64}`
-
-    // Import the private key with proper formatting
-    const keyData = new TextEncoder().encode(privateKey)
-    const algorithm = {
-      name: 'RSASSA-PKCS1-v1_5',
-      hash: { name: 'SHA-256' }
-    }
-
-    // Sign the JWT
-    const key = await crypto.subtle.importKey(
-      'pkcs8',
-      keyData,
-      algorithm,
-      false,
-      ['sign']
-    )
-
-    const signature = await crypto.subtle.sign(
-      algorithm.name,
-      key,
-      encoder.encode(signatureInput)
-    )
-
-    const jwt = `${headerB64}.${claimB64}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`
-
-    // Exchange JWT for access token
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: jwt
-      })
-    })
-
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text()
-      console.error('Token exchange failed:', error)
-      throw new Error('Failed to get access token: ' + error)
-    }
-
-    const { access_token } = await tokenResponse.json()
-
-    // Make request to Google Sheets API
-    console.log('Fetching data from Google Sheets...')
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A2:D`,
-      {
-        headers: {
-          'Authorization': `Bearer ${access_token}`
-        }
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Google Sheets API error:', errorText)
-      throw new Error(`Google Sheets API error: ${errorText}`)
-    }
-
-    const data = await response.json()
-    const rows = data.values || []
-    console.log(`Found ${rows.length} rows in Google Sheets`)
-
-    // Process each row and prepare for Supabase
-    const events = rows.map(row => ({
-      date: row[0], // Date
-      title: row[1], // Title
-      status: row[2]?.toLowerCase() || 'pending', // Status
-      is_recurring: row[3]?.toLowerCase() === 'true', // Is Recurring
     }))
 
-    // Clear existing events and insert new ones
-    console.log('Clearing existing events...')
-    const { error: deleteError } = await supabase
-      .from('events')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000')
+    // Prepare the signing input
+    const signInput = `${jwtHeader}.${jwtClaimSet}`
+    const encoder = new TextEncoder()
+    const signBytes = encoder.encode(signInput)
 
-    if (deleteError) {
-      console.error('Error deleting existing events:', deleteError)
-      throw new Error(`Error deleting existing events: ${deleteError.message}`)
+    // Import the private key for signing
+    const keyImportParams = {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: { name: 'SHA-256' },
     }
 
-    console.log('Inserting new events...')
-    const { error: insertError } = await supabase
-      .from('events')
-      .insert(events)
+    try {
+      console.log('Attempting to import private key...')
+      const pemHeader = '-----BEGIN PRIVATE KEY-----'
+      const pemFooter = '-----END PRIVATE KEY-----'
+      const pemContents = privateKey
+        .replace(pemHeader, '')
+        .replace(pemFooter, '')
+        .replace(/\s/g, '')
 
-    if (insertError) {
-      console.error('Error inserting new events:', insertError)
-      throw new Error(`Error inserting new events: ${insertError.message}`)
-    }
-
-    console.log('Sync completed successfully')
-    
-    return new Response(
-      JSON.stringify({ success: true, message: 'Events synced successfully' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+      const binaryKey = atob(pemContents)
+      const binaryKeyBytes = new Uint8Array(binaryKey.length)
+      for (let i = 0; i < binaryKey.length; i++) {
+        binaryKeyBytes[i] = binaryKey.charCodeAt(i)
       }
-    )
+
+      const cryptoKey = await crypto.subtle.importKey(
+        'pkcs8',
+        binaryKeyBytes,
+        keyImportParams,
+        false,
+        ['sign']
+      )
+
+      console.log('Private key imported successfully')
+
+      // Sign the JWT
+      const signature = await crypto.subtle.sign(
+        keyImportParams.name,
+        cryptoKey,
+        signBytes
+      )
+
+      // Convert signature to base64
+      const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      const jwt = `${signInput}.${signatureBase64}`
+
+      console.log('JWT created successfully')
+
+      // Exchange JWT for access token
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion: jwt
+        })
+      })
+
+      if (!tokenResponse.ok) {
+        const error = await tokenResponse.text()
+        console.error('Token exchange failed:', error)
+        throw new Error('Failed to get access token: ' + error)
+      }
+
+      const { access_token } = await tokenResponse.json()
+
+      // Make request to Google Sheets API
+      console.log('Fetching data from Google Sheets...')
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A2:D`,
+        {
+          headers: {
+            'Authorization': `Bearer ${access_token}`
+          }
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Google Sheets API error:', errorText)
+        throw new Error(`Google Sheets API error: ${errorText}`)
+      }
+
+      const data = await response.json()
+      const rows = data.values || []
+      console.log(`Found ${rows.length} rows in Google Sheets`)
+
+      // Process each row and prepare for Supabase
+      const events = rows.map(row => ({
+        date: row[0], // Date
+        title: row[1], // Title
+        status: row[2]?.toLowerCase() || 'pending', // Status
+        is_recurring: row[3]?.toLowerCase() === 'true', // Is Recurring
+      }))
+
+      // Clear existing events and insert new ones
+      console.log('Clearing existing events...')
+      const { error: deleteError } = await supabase
+        .from('events')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+
+      if (deleteError) {
+        console.error('Error deleting existing events:', deleteError)
+        throw new Error(`Error deleting existing events: ${deleteError.message}`)
+      }
+
+      console.log('Inserting new events...')
+      const { error: insertError } = await supabase
+        .from('events')
+        .insert(events)
+
+      if (insertError) {
+        console.error('Error inserting new events:', insertError)
+        throw new Error(`Error inserting new events: ${insertError.message}`)
+      }
+
+      console.log('Sync completed successfully')
+      
+      return new Response(
+        JSON.stringify({ success: true, message: 'Events synced successfully' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+
+    } catch (error) {
+      console.error('Error in JWT signing process:', error)
+      throw error
+    }
 
   } catch (error) {
     console.error('Error syncing events:', error)
