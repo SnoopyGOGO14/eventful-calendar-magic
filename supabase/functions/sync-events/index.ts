@@ -30,8 +30,9 @@ serve(async (req) => {
     console.log(`Using spreadsheet ID: ${spreadsheetId}`)
 
     // Get and parse Google Sheets credentials
-    const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS')
+    const credentialsStr = Deno.env.get('Google sheets Json')
     if (!credentialsStr) {
+      console.error('Google Sheets credentials not found')
       throw new Error('Google Sheets credentials not found')
     }
 
@@ -44,10 +45,6 @@ serve(async (req) => {
       throw new Error('Invalid Google Sheets credentials format')
     }
 
-    if (!credentials.access_token) {
-      throw new Error('Access token not found in credentials')
-    }
-    
     // Make a direct fetch request to Google Sheets API
     console.log('Fetching data from Google Sheets...')
     const response = await fetch(
@@ -73,7 +70,7 @@ serve(async (req) => {
     const events = rows.map(row => ({
       date: row[0], // Date
       title: row[1], // Title
-      status: row[2], // Status
+      status: row[2]?.toLowerCase() || 'pending', // Status
       is_recurring: row[3]?.toLowerCase() === 'true', // Is Recurring
     }))
 
@@ -113,7 +110,10 @@ serve(async (req) => {
     console.error('Error syncing events:', error)
     
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
