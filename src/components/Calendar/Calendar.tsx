@@ -45,19 +45,6 @@ export const Calendar = () => {
     );
   };
 
-  const getBackgroundColor = (status?: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'bg-[#F2FCE2]';
-      case 'pending':
-        return 'bg-[#FEC6A1]';
-      case 'cancelled':
-        return 'bg-[#ea384c]';
-      default:
-        return 'bg-transparent';
-    }
-  };
-
   const dayNames = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
   const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -97,9 +84,9 @@ export const Calendar = () => {
                 key={day.toString()}
                 onClick={() => setSelectedDate(day)}
                 className={cn(
-                  "min-h-[100px] p-2 border border-white/10 transition-all cursor-pointer",
-                  getBackgroundColor(event?.status),
-                  !isCurrentMonth && "opacity-50"
+                  "min-h-[100px] p-2 border border-white/10 transition-all cursor-pointer relative",
+                  !isCurrentMonth && "opacity-50",
+                  "bg-transparent" // Always keep the background transparent
                 )}
               >
                 <div className="font-bold text-white">
@@ -107,15 +94,24 @@ export const Calendar = () => {
                 </div>
                 
                 {event && (
-                  <div className="mt-1">
-                    {event.isRecurring ? (
-                      <AnimatedBrandName name={event.title} />
-                    ) : (
-                      <div className="font-bold text-white">
-                        {event.title}
+                  <>
+                    <div className="mt-1 text-white">
+                      {event.isRecurring ? (
+                        <AnimatedBrandName name={event.title} />
+                      ) : (
+                        <div className="font-bold">
+                          {event.title}
+                        </div>
+                      )}
+                    </div>
+                    {event.status === 'confirmed' && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-[#F2FCE2] py-1">
+                        <span className="text-white text-sm font-medium">
+                          Confirmed
+                        </span>
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             );
