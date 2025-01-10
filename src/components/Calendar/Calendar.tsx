@@ -24,7 +24,7 @@ export const Calendar = () => {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      await syncEvents('10HjBOsJemFkmRbu-EGG0BnFUKAh0FMhPWsvjuSlGokw');
+      await syncEvents('18KbXdfe2EfjtP3YahNRs1uJauMoK0yZsJCwzeCBu1kc');
       toast.success('Calendar synced successfully!');
     } catch (error) {
       toast.error('Failed to sync calendar. Please try again.');
