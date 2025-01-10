@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { parse } from "https://deno.land/std@0.168.0/datetime/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,28 +23,18 @@ serve(async (req) => {
       throw new Error('Spreadsheet ID is required')
     }
 
+    // Authentication setup
     const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS')
     if (!credentialsStr) {
-      console.error('Google Sheets credentials not found in environment')
       throw new Error('Google Sheets credentials not found')
     }
 
-    console.log('Attempting to parse credentials...')
-    let credentials
-    try {
-      credentials = JSON.parse(credentialsStr)
-      
-      if (!credentials.client_email || !credentials.private_key) {
-        throw new Error('Missing required fields in credentials')
-      }
-      
-      console.log('Successfully parsed credentials. Service Account Email:', credentials.client_email)
-    } catch (error) {
-      console.error('Raw credentials string:', credentialsStr)
-      console.error('Credentials parsing error:', error)
-      throw new Error(`Invalid credentials format: ${error.message}`)
+    const credentials = JSON.parse(credentialsStr)
+    if (!credentials.client_email || !credentials.private_key) {
+      throw new Error('Invalid credentials format')
     }
 
+    // JWT Creation
     const privateKey = credentials.private_key.replace(/\\n/g, '\n')
     const now = Math.floor(Date.now() / 1000)
     
@@ -66,69 +55,64 @@ serve(async (req) => {
     const encoder = new TextEncoder()
     const signBytes = encoder.encode(signInput)
 
-    console.log('Preparing to sign JWT...')
-
+    // Sign JWT
     const keyImportParams = {
       name: 'RSASSA-PKCS1-v1_5',
       hash: { name: 'SHA-256' },
     }
 
-    try {
-      const pemHeader = '-----BEGIN PRIVATE KEY-----'
-      const pemFooter = '-----END PRIVATE KEY-----'
-      const pemContents = privateKey
-        .replace(pemHeader, '')
-        .replace(pemFooter, '')
-        .replace(/\s/g, '')
+    const pemHeader = '-----BEGIN PRIVATE KEY-----'
+    const pemFooter = '-----END PRIVATE KEY-----'
+    const pemContents = privateKey
+      .replace(pemHeader, '')
+      .replace(pemFooter, '')
+      .replace(/\s/g, '')
 
-      const binaryKey = atob(pemContents)
-      const binaryKeyBytes = new Uint8Array(binaryKey.length)
-      for (let i = 0; i < binaryKey.length; i++) {
-        binaryKeyBytes[i] = binaryKey.charCodeAt(i)
-      }
+    const binaryKey = atob(pemContents)
+    const binaryKeyBytes = new Uint8Array(binaryKey.length)
+    for (let i = 0; i < binaryKey.length; i++) {
+      binaryKeyBytes[i] = binaryKey.charCodeAt(i)
+    }
 
-      console.log('Importing private key...')
-      const cryptoKey = await crypto.subtle.importKey(
-        'pkcs8',
-        binaryKeyBytes,
-        keyImportParams,
-        false,
-        ['sign']
-      )
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      binaryKeyBytes,
+      keyImportParams,
+      false,
+      ['sign']
+    )
 
-      console.log('Signing JWT...')
-      const signature = await crypto.subtle.sign(
-        keyImportParams.name,
-        cryptoKey,
-        signBytes
-      )
+    const signature = await crypto.subtle.sign(
+      keyImportParams.name,
+      cryptoKey,
+      signBytes
+    )
 
-      const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-      const jwt = `${signInput}.${signatureBase64}`
+    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    const jwt = `${signInput}.${signatureBase64}`
 
-      console.log('Getting access token...')
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({
-          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-          assertion: jwt
-        })
+    // Get access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt
       })
+    })
 
-      if (!tokenResponse.ok) {
-        const error = await tokenResponse.text()
-        console.error('Token response error:', error)
-        throw new Error('Failed to get access token: ' + error)
-      }
+    if (!tokenResponse.ok) {
+      throw new Error('Failed to get access token: ' + await tokenResponse.text())
+    }
 
-      const { access_token } = await tokenResponse.json()
+    const { access_token } = await tokenResponse.json()
 
+    // Fetch data from Google Sheets
     console.log('Fetching data from Google Sheets...')
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!C:I`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
       {
         headers: {
           'Authorization': `Bearer ${access_token}`
@@ -137,9 +121,7 @@ serve(async (req) => {
     )
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Google Sheets API error:', errorText)
-      throw new Error(`Google Sheets API error: ${errorText}`)
+      throw new Error(`Google Sheets API error: ${await response.text()}`)
     }
 
     const data = await response.json()
@@ -149,18 +131,23 @@ serve(async (req) => {
     const parseDate = (dateStr: string) => {
       try {
         // Expected format: "Friday January 10"
-        const parts = dateStr.split(' ')
-        if (parts.length !== 3) return null
+        const parts = dateStr.trim().split(' ')
+        if (parts.length !== 3) {
+          console.log('Invalid date format:', dateStr)
+          return null
+        }
 
         const day = parseInt(parts[2])
         const month = parts[1]
-        // Assuming current year for dates
         const year = new Date().getFullYear()
         
         const dateString = `${month} ${day}, ${year}`
         const date = new Date(dateString)
         
-        if (isNaN(date.getTime())) return null
+        if (isNaN(date.getTime())) {
+          console.log('Invalid date conversion:', dateString)
+          return null
+        }
         
         return date.toISOString().split('T')[0] // Returns YYYY-MM-DD
       } catch (error) {
@@ -170,10 +157,9 @@ serve(async (req) => {
     }
 
     const events = rows.map((row: string[], index: number) => {
-      // Log the row data for debugging
       console.log(`Processing row ${index}:`, row)
 
-      const dateStr = row[0] // Column C
+      const dateStr = row[0] // Column B
       const parsedDate = parseDate(dateStr)
       
       if (!parsedDate) {
@@ -181,21 +167,22 @@ serve(async (req) => {
         return null
       }
 
-      const title = row[1] || '' // Column D
-      const contractStatus = row[6]?.toLowerCase() || '' // Column I
+      const title = row[1] || '' // Column C
+      const contractStatus = (row[7] || '').toLowerCase() // Column I
 
       return {
         date: parsedDate,
         title: title,
         status: contractStatus === 'yes' ? 'confirmed' : 'pending',
-        is_recurring: false // Default value as not specified in the sheet
+        is_recurring: false
       }
-    }).filter(event => event !== null) // Remove invalid entries
+    }).filter(event => event !== null)
 
     if (events.length === 0) {
       throw new Error('No valid events found in the spreadsheet')
     }
 
+    // Clear existing events
     console.log('Clearing existing events...')
     const { error: deleteError } = await supabase
       .from('events')
@@ -203,17 +190,16 @@ serve(async (req) => {
       .neq('id', '00000000-0000-0000-0000-000000000000')
 
     if (deleteError) {
-      console.error('Error deleting events:', deleteError)
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
     }
 
+    // Insert new events
     console.log('Inserting new events...')
     const { error: insertError } = await supabase
       .from('events')
       .insert(events)
 
     if (insertError) {
-      console.error('Error inserting events:', insertError)
       throw new Error(`Error inserting new events: ${insertError.message}`)
     }
 
