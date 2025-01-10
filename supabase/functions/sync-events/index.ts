@@ -32,10 +32,8 @@ serve(async (req) => {
     console.log('Attempting to parse credentials...')
     let credentials
     try {
-      // Try to parse the credentials string
       credentials = JSON.parse(credentialsStr)
       
-      // Validate required fields
       if (!credentials.client_email || !credentials.private_key) {
         throw new Error('Missing required fields in credentials')
       }
@@ -107,88 +105,84 @@ serve(async (req) => {
       const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
       const jwt = `${signInput}.${signatureBase64}`
 
-      console.log('Getting access token...')
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({
-          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-          assertion: jwt
-        })
+    console.log('Getting access token...')
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt
       })
+    })
 
-      if (!tokenResponse.ok) {
-        const error = await tokenResponse.text()
-        console.error('Token response error:', error)
-        throw new Error('Failed to get access token: ' + error)
-      }
-
-      const { access_token } = await tokenResponse.json()
-
-      console.log('Fetching data from Google Sheets...')
-      const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A2:D`,
-        {
-          headers: {
-            'Authorization': `Bearer ${access_token}`
-          }
-        }
-      )
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Google Sheets API error:', errorText)
-        throw new Error(`Google Sheets API error: ${errorText}`)
-      }
-
-      const data = await response.json()
-      const rows = data.values || []
-      console.log(`Found ${rows.length} rows in Google Sheets`)
-
-      const events = rows.map(row => ({
-        date: row[0],
-        title: row[1],
-        status: row[2]?.toLowerCase() || 'pending',
-        is_recurring: row[3]?.toLowerCase() === 'true',
-      }))
-
-      console.log('Clearing existing events...')
-      const { error: deleteError } = await supabase
-        .from('events')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000')
-
-      if (deleteError) {
-        console.error('Error deleting events:', deleteError)
-        throw new Error(`Error deleting existing events: ${deleteError.message}`)
-      }
-
-      console.log('Inserting new events...')
-      const { error: insertError } = await supabase
-        .from('events')
-        .insert(events)
-
-      if (insertError) {
-        console.error('Error inserting events:', insertError)
-        throw new Error(`Error inserting new events: ${insertError.message}`)
-      }
-
-      console.log('Sync completed successfully')
-      
-      return new Response(
-        JSON.stringify({ success: true, message: 'Events synced successfully' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-
-    } catch (error) {
-      console.error('Error in JWT signing process:', error)
-      throw error
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.text()
+      console.error('Token response error:', error)
+      throw new Error('Failed to get access token: ' + error)
     }
+
+    const { access_token } = await tokenResponse.json()
+
+    console.log('Fetching data from Google Sheets...')
+    // Updated to use STUDIO 338 - 2025 tab
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!A2:D`,
+      {
+        headers: {
+          'Authorization': `Bearer ${access_token}`
+        }
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Google Sheets API error:', errorText)
+      throw new Error(`Google Sheets API error: ${errorText}`)
+    }
+
+    const data = await response.json()
+    const rows = data.values || []
+    console.log(`Found ${rows.length} rows in Google Sheets`)
+
+    const events = rows.map(row => ({
+      date: row[0],
+      title: row[1],
+      status: row[2]?.toLowerCase() || 'pending',
+      is_recurring: row[3]?.toLowerCase() === 'true',
+    }))
+
+    console.log('Clearing existing events...')
+    const { error: deleteError } = await supabase
+      .from('events')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000')
+
+    if (deleteError) {
+      console.error('Error deleting events:', deleteError)
+      throw new Error(`Error deleting existing events: ${deleteError.message}`)
+    }
+
+    console.log('Inserting new events...')
+    const { error: insertError } = await supabase
+      .from('events')
+      .insert(events)
+
+    if (insertError) {
+      console.error('Error inserting events:', insertError)
+      throw new Error(`Error inserting new events: ${insertError.message}`)
+    }
+
+    console.log('Sync completed successfully')
+    
+    return new Response(
+      JSON.stringify({ success: true, message: 'Events synced successfully' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    )
 
   } catch (error) {
     console.error('Error syncing events:', error)
