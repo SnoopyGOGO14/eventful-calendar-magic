@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { parse } from "https://deno.land/std@0.168.0/datetime/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -125,85 +126,106 @@ serve(async (req) => {
 
       const { access_token } = await tokenResponse.json()
 
-      console.log('Fetching data from Google Sheets...')
-      const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!A2:D`,
-        {
-          headers: {
-            'Authorization': `Bearer ${access_token}`
-          }
+    console.log('Fetching data from Google Sheets...')
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!C:I`,
+      {
+        headers: {
+          'Authorization': `Bearer ${access_token}`
         }
-      )
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Google Sheets API error:', errorText)
-        throw new Error(`Google Sheets API error: ${errorText}`)
       }
+    )
 
-      const data = await response.json()
-      const rows = data.values || []
-      console.log(`Found ${rows.length} rows in Google Sheets`)
-
-      // Add validation for date format and data transformation
-      const events = rows.map(row => {
-        // Log the row data for debugging
-        console.log('Processing row:', row)
-
-        // Validate date format (assuming date is in column A)
-        const dateStr = row[0]
-        if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-          console.warn(`Invalid date format for row:`, row)
-          return null
-        }
-
-        return {
-          date: dateStr,
-          title: row[1] || '',
-          status: (row[2]?.toLowerCase() || 'pending'),
-          is_recurring: row[3]?.toLowerCase() === 'true',
-        }
-      }).filter(event => event !== null) // Remove invalid entries
-
-      if (events.length === 0) {
-        throw new Error('No valid events found in the spreadsheet')
-      }
-
-      console.log('Clearing existing events...')
-      const { error: deleteError } = await supabase
-        .from('events')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000')
-
-      if (deleteError) {
-        console.error('Error deleting events:', deleteError)
-        throw new Error(`Error deleting existing events: ${deleteError.message}`)
-      }
-
-      console.log('Inserting new events...')
-      const { error: insertError } = await supabase
-        .from('events')
-        .insert(events)
-
-      if (insertError) {
-        console.error('Error inserting events:', insertError)
-        throw new Error(`Error inserting new events: ${insertError.message}`)
-      }
-
-      console.log('Sync completed successfully')
-      
-      return new Response(
-        JSON.stringify({ success: true, message: 'Events synced successfully' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-
-    } catch (error) {
-      console.error('JWT signing error:', error)
-      throw error
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Google Sheets API error:', errorText)
+      throw new Error(`Google Sheets API error: ${errorText}`)
     }
+
+    const data = await response.json()
+    const rows = data.values || []
+    console.log(`Found ${rows.length} rows in Google Sheets`)
+
+    const parseDate = (dateStr: string) => {
+      try {
+        // Expected format: "Friday January 10"
+        const parts = dateStr.split(' ')
+        if (parts.length !== 3) return null
+
+        const day = parseInt(parts[2])
+        const month = parts[1]
+        // Assuming current year for dates
+        const year = new Date().getFullYear()
+        
+        const dateString = `${month} ${day}, ${year}`
+        const date = new Date(dateString)
+        
+        if (isNaN(date.getTime())) return null
+        
+        return date.toISOString().split('T')[0] // Returns YYYY-MM-DD
+      } catch (error) {
+        console.error('Date parsing error:', error)
+        return null
+      }
+    }
+
+    const events = rows.map((row: string[], index: number) => {
+      // Log the row data for debugging
+      console.log(`Processing row ${index}:`, row)
+
+      const dateStr = row[0] // Column C
+      const parsedDate = parseDate(dateStr)
+      
+      if (!parsedDate) {
+        console.warn(`Invalid date format in row ${index}:`, dateStr)
+        return null
+      }
+
+      const title = row[1] || '' // Column D
+      const contractStatus = row[6]?.toLowerCase() || '' // Column I
+
+      return {
+        date: parsedDate,
+        title: title,
+        status: contractStatus === 'yes' ? 'confirmed' : 'pending',
+        is_recurring: false // Default value as not specified in the sheet
+      }
+    }).filter(event => event !== null) // Remove invalid entries
+
+    if (events.length === 0) {
+      throw new Error('No valid events found in the spreadsheet')
+    }
+
+    console.log('Clearing existing events...')
+    const { error: deleteError } = await supabase
+      .from('events')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000')
+
+    if (deleteError) {
+      console.error('Error deleting events:', deleteError)
+      throw new Error(`Error deleting existing events: ${deleteError.message}`)
+    }
+
+    console.log('Inserting new events...')
+    const { error: insertError } = await supabase
+      .from('events')
+      .insert(events)
+
+    if (insertError) {
+      console.error('Error inserting events:', insertError)
+      throw new Error(`Error inserting new events: ${insertError.message}`)
+    }
+
+    console.log('Sync completed successfully')
+    
+    return new Response(
+      JSON.stringify({ success: true, message: 'Events synced successfully' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    )
 
   } catch (error) {
     console.error('Error syncing events:', error)
