@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { syncEvents } from '@/utils/syncEvents';
 
 export interface Event {
+  date: string;
   title: string;
   status: 'confirmed' | 'pending' | 'cancelled';
   isRecurring: boolean;

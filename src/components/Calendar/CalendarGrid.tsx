@@ -6,7 +6,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface CalendarGridProps {
   days: Date[];
   currentDate: Date;
-  events?: (Event & { date: string })[];
+  events?: Event[];
   onSelectDate: (date: Date) => void;
 }
 

@@ -6,7 +6,7 @@ import { Event } from './Calendar';
 interface CalendarDayProps {
   day: Date;
   currentDate: Date;
-  event?: Event & { date: string };
+  event?: Event;
   onSelect: (date: Date) => void;
 }
 
