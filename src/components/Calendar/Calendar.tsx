@@ -6,7 +6,6 @@ import { CalendarHeader } from './CalendarHeader';
 import { useCalendarData } from '@/hooks/useCalendarData';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { syncEvents } from '@/utils/syncEvents';
 
@@ -20,8 +19,6 @@ export const Calendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [showSetupDialog, setShowSetupDialog] = useState(false);
-  const [setupStep, setSetupStep] = useState(1);
   const { events, isLoading } = useCalendarData();
 
   const handleSync = async () => {
@@ -30,32 +27,11 @@ export const Calendar = () => {
       await syncEvents('10HjBOsJemFkmRbu-EGG0BnFUKAh0FMhPWsvjuSlGokw');
       toast.success('Calendar synced successfully!');
     } catch (error) {
-      toast.error('Failed to sync calendar. Please check setup.');
+      toast.error('Failed to sync calendar. Please try again.');
     } finally {
       setIsSyncing(false);
     }
   };
-
-  const setupSteps = [
-    {
-      title: "Step 1: Open Your Google Sheet",
-      description: "Click the button below to open your Google Sheet in a new tab.",
-      action: () => {
-        window.open('https://docs.google.com/spreadsheets/d/10HjBOsJemFkmRbu-EGG0BnFUKAh0FMhPWsvjuSlGokw', '_blank');
-        setSetupStep(2);
-      }
-    },
-    {
-      title: "Step 2: Share Your Sheet",
-      description: "Click 'Share' in the top right of your Google Sheet and add this email as an Editor: loveable-calendar-2@loveable-calendar-2.iam.gserviceaccount.com",
-      action: () => setSetupStep(3)
-    },
-    {
-      title: "Step 3: Sync Calendar",
-      description: "Now that everything is set up, click below to sync your calendar with the Google Sheet.",
-      action: handleSync
-    }
-  ];
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -89,37 +65,13 @@ export const Calendar = () => {
             onDateChange={setCurrentDate}
           />
           <Button 
-            onClick={() => setShowSetupDialog(true)}
+            onClick={handleSync}
+            disabled={isSyncing}
             className="bg-green-500 hover:bg-green-600"
           >
-            Setup & Sync Calendar
+            {isSyncing ? 'Syncing...' : 'Sync Calendar'}
           </Button>
         </div>
-        
-        <Dialog open={showSetupDialog} onOpenChange={setShowSetupDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{setupSteps[setupStep - 1].title}</DialogTitle>
-              <DialogDescription className="py-4">
-                {setupSteps[setupStep - 1].description}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex justify-between items-center mt-4">
-              {setupStep > 1 && (
-                <Button variant="outline" onClick={() => setSetupStep(step => step - 1)}>
-                  Previous
-                </Button>
-              )}
-              <Button 
-                onClick={setupSteps[setupStep - 1].action}
-                disabled={isSyncing}
-                className="ml-auto"
-              >
-                {setupStep === 3 ? (isSyncing ? 'Syncing...' : 'Sync Now') : 'Continue'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         <div className="grid grid-cols-7 gap-1 mt-4">
           {['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].map((day) => (
