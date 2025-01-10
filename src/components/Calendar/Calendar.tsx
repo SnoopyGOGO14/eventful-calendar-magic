@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { syncEvents } from '@/utils/syncEvents';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export interface Event {
   title: string;
@@ -20,6 +21,7 @@ export const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const { events, isLoading } = useCalendarData();
+  const isMobile = useIsMobile();
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -56,6 +58,9 @@ export const Calendar = () => {
     }
   };
 
+  const dayNames = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+  const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
   return (
     <div className="min-h-screen bg-[#1B3A4B] p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -74,7 +79,7 @@ export const Calendar = () => {
         </div>
 
         <div className="grid grid-cols-7 gap-1 mt-4">
-          {['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].map((day) => (
+          {(isMobile ? dayNamesShort : dayNames).map((day) => (
             <div 
               key={day} 
               className="p-2 text-white font-bold text-center border-b border-white/20"
@@ -83,7 +88,7 @@ export const Calendar = () => {
             </div>
           ))}
 
-          {days.map((day, index) => {
+          {days.map((day) => {
             const event = getEventForDate(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
 
