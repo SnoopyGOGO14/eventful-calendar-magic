@@ -45,6 +45,28 @@ export const Calendar = () => {
     );
   };
 
+  const getStatusBand = (status?: string) => {
+    switch (status) {
+      case 'confirmed':
+        return {
+          bg: 'bg-[#F2FCE2]',
+          text: 'Confirmed'
+        };
+      case 'pending':
+        return {
+          bg: 'bg-[#FEC6A1]',
+          text: 'Pending'
+        };
+      case 'cancelled':
+        return {
+          bg: 'bg-[#ea384c]',
+          text: 'Cancelled'
+        };
+      default:
+        return null;
+    }
+  };
+
   const dayNames = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
   const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -78,6 +100,7 @@ export const Calendar = () => {
           {days.map((day) => {
             const event = getEventForDate(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
+            const statusBand = getStatusBand(event?.status);
 
             return (
               <div
@@ -86,7 +109,7 @@ export const Calendar = () => {
                 className={cn(
                   "min-h-[100px] p-2 border border-white/10 transition-all cursor-pointer relative",
                   !isCurrentMonth && "opacity-50",
-                  "bg-transparent" // Always keep the background transparent
+                  "bg-transparent"
                 )}
               >
                 <div className="font-bold text-white">
@@ -104,10 +127,13 @@ export const Calendar = () => {
                         </div>
                       )}
                     </div>
-                    {event.status === 'confirmed' && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-[#F2FCE2] py-1">
+                    {statusBand && (
+                      <div className={cn(
+                        "absolute bottom-0 left-0 right-0 py-1",
+                        statusBand.bg
+                      )}>
                         <span className="text-white text-sm font-medium">
-                          Confirmed
+                          {statusBand.text}
                         </span>
                       </div>
                     )}
