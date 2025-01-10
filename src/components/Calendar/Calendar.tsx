@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
-import { AnimatedBrandName } from './AnimatedBrandName';
+import { startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { NoteModal } from './NoteModal';
 import { CalendarHeader } from './CalendarHeader';
+import { CalendarGrid } from './CalendarGrid';
 import { useCalendarData } from '@/hooks/useCalendarData';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { syncEvents } from '@/utils/syncEvents';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 export interface Event {
   title: string;
@@ -21,7 +19,6 @@ export const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const { events, isLoading } = useCalendarData();
-  const isMobile = useIsMobile();
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -38,37 +35,6 @@ export const Calendar = () => {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
-  const getEventForDate = (date: Date): Event | undefined => {
-    return events?.find(event => 
-      format(new Date(event.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-    );
-  };
-
-  const getStatusBand = (status?: string) => {
-    switch (status) {
-      case 'confirmed':
-        return {
-          bg: 'bg-green-500',
-          text: 'Confirmed'
-        };
-      case 'pending':
-        return {
-          bg: 'bg-orange-400',
-          text: 'Pending'
-        };
-      case 'cancelled':
-        return {
-          bg: 'bg-red-500',
-          text: 'Cancelled'
-        };
-      default:
-        return null;
-    }
-  };
-
-  const dayNames = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-  const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
   return (
     <div className="min-h-screen bg-[#1B3A4B] p-4 md:p-8">
@@ -87,62 +53,12 @@ export const Calendar = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 mt-4">
-          {(isMobile ? dayNamesShort : dayNames).map((day) => (
-            <div 
-              key={day} 
-              className="p-2 text-white font-bold text-center border-b border-white/20"
-            >
-              {day}
-            </div>
-          ))}
-
-          {days.map((day) => {
-            const event = getEventForDate(day);
-            const isCurrentMonth = isSameMonth(day, currentDate);
-            const statusBand = getStatusBand(event?.status);
-
-            return (
-              <div
-                key={day.toString()}
-                onClick={() => setSelectedDate(day)}
-                className={cn(
-                  "min-h-[100px] p-2 border border-white/10 transition-all cursor-pointer relative",
-                  !isCurrentMonth && "opacity-50",
-                  "bg-transparent"
-                )}
-              >
-                <div className="font-bold text-white">
-                  {format(day, 'd')}
-                </div>
-                
-                {event && (
-                  <>
-                    <div className="mt-1 text-white">
-                      {event.isRecurring ? (
-                        <AnimatedBrandName name={event.title} />
-                      ) : (
-                        <div className="font-bold">
-                          {event.title}
-                        </div>
-                      )}
-                    </div>
-                    {statusBand && (
-                      <div className={cn(
-                        "absolute bottom-0 left-0 right-0 py-1 text-center",
-                        statusBand.bg
-                      )}>
-                        <span className="text-white text-sm font-medium">
-                          {statusBand.text}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <CalendarGrid
+          days={days}
+          currentDate={currentDate}
+          events={events}
+          onSelectDate={setSelectedDate}
+        />
 
         {selectedDate && (
           <NoteModal
