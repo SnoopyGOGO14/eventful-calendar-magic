@@ -49,17 +49,17 @@ export const Calendar = () => {
     switch (status) {
       case 'confirmed':
         return {
-          bg: 'bg-[#F2FCE2]',
+          bg: 'bg-green-500',
           text: 'Confirmed'
         };
       case 'pending':
         return {
-          bg: 'bg-[#FEC6A1]',
+          bg: 'bg-orange-400',
           text: 'Pending'
         };
       case 'cancelled':
         return {
-          bg: 'bg-[#ea384c]',
+          bg: 'bg-red-500',
           text: 'Cancelled'
         };
       default:
@@ -129,7 +129,7 @@ export const Calendar = () => {
                     </div>
                     {statusBand && (
                       <div className={cn(
-                        "absolute bottom-0 left-0 right-0 py-1",
+                        "absolute bottom-0 left-0 right-0 py-1 text-center",
                         statusBand.bg
                       )}>
                         <span className="text-white text-sm font-medium">
