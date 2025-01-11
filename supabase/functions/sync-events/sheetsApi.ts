@@ -97,11 +97,16 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       // Parse the date string
       let date: Date;
       
-      // Handle NYD and NYE specifically
-      if (dateStr.toLowerCase().includes('nye')) {
+      // First check for NYD/NYE specifically
+      const isNYD = dateStr.toLowerCase().includes('nyd');
+      const isNYE = dateStr.toLowerCase().includes('nye');
+
+      if (isNYE) {
         date = new Date(2025, 11, 31); // December 31st, 2025
-      } else if (dateStr.toLowerCase().includes('nyd')) {
+        console.log(`Row ${index + 1}: NYE event detected for Dec 31, 2025`);
+      } else if (isNYD) {
         date = new Date(2026, 0, 1); // January 1st, 2026
+        console.log(`Row ${index + 1}: NYD event detected for Jan 1, 2026`);
       } else {
         // Parse regular date format (e.g., "Friday January 3")
         const parts = dateStr.split(' ');
@@ -119,8 +124,8 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
           return null;
         }
 
-        // Regular dates in 2025
         date = new Date(2025, month, dayNum);
+        console.log(`Row ${index + 1}: Regular event parsed for ${date.toISOString()}`);
       }
 
       // Validate date
