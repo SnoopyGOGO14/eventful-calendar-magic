@@ -32,27 +32,29 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
-  // Detailed row analysis with line numbers
-  console.log('\n=== SPREADSHEET ANALYSIS ===');
-  console.log('Total rows found:', values.values ? values.values.length : 0);
-  console.log('\n=== LINE BY LINE ANALYSIS ===');
-  
-  (values.values || []).forEach((row: any[], index: number) => {
-    const lineNumber = index + 1;
-    const dateValue = row[0] ? row[0].trim() : '';
-    const hasDate = dateValue !== '';
-    const color = formatting.sheets?.[0]?.data?.[0]?.rowData?.[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-    
-    console.log(`Line ${lineNumber.toString().padStart(3, '0')}: ${hasDate ? '📅 HAS DATA' : '❌ BLANK   '}`);
-    if (hasDate) {
-      console.log(`   Date: "${dateValue}"`);
-      console.log(`   Color: ${JSON.stringify(color)}`);
-      console.log(`   Line Number: ${lineNumber}`);
-    }
-    console.log('   ---');
-  });
-  
-  console.log('\n=== END OF ANALYSIS ===\n');
+  // Special check for line 13 (January 18th, 2025)
+  console.log('\n=== SPECIAL LINE 13 CHECK ===');
+  const line13Index = 12; // 0-based index for line 13
+  const line13Data = values.values?.[line13Index] || [];
+  const line13Date = line13Data[0]?.trim() || '';
+  const line13Color = formatting.sheets?.[0]?.data?.[0]?.rowData?.[line13Index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
+
+  console.log('Line 13 Analysis:');
+  console.log(`Date in spreadsheet: "${line13Date}"`);
+  console.log(`Color data:`, JSON.stringify(line13Color, null, 2));
+
+  if (line13Date.includes('Sat Jan 18')) {
+    console.log('✅ Date match confirmed for Line 13: January 18th, 2025');
+    console.log('Color Analysis for Line 13:');
+    const status = determineStatusFromColor(line13Color, 13);
+    console.log(`Final status determination: ${status}`);
+  } else {
+    console.log('⚠️ Line 13 does not contain January 18th, 2025');
+    console.log(`Found date: ${line13Date}`);
+  }
+
+  // Continue with regular analysis
+  console.log('\n=== REGULAR SPREADSHEET ANALYSIS ===');
 
   // Extract the row data which contains the formatting information
   const rowFormatting = formatting.sheets?.[0]?.data?.[0]?.rowData || [];
@@ -74,25 +76,25 @@ function determineStatusFromColor(color: any, lineNumber: number) {
   
   console.log(`Line ${lineNumber}: Color values - R:${red} G:${green} B:${blue}`);
   
-  // Simple dominant color check
-  const maxValue = Math.max(red, green, blue);
+  // Enhanced color detection with specific thresholds
+  const isGreen = green > Math.max(red, blue) && green > 0.5;
+  const isRed = red > Math.max(green, blue) && red > 0.5;
+  const isYellow = red > 0.5 && green > 0.5 && blue < 0.3;
   
-  if (maxValue < 0.1) {
-    console.log(`Line ${lineNumber}: Very dark/black cell, setting as pending`);
+  if (isGreen) {
+    console.log(`Line ${lineNumber}: Green dominant (Confirmed)`);
+    return 'confirmed';
+  }
+  if (isRed) {
+    console.log(`Line ${lineNumber}: Red dominant (Cancelled)`);
+    return 'cancelled';
+  }
+  if (isYellow) {
+    console.log(`Line ${lineNumber}: Yellow detected (Pending)`);
     return 'pending';
   }
   
-  // Check which color is dominant
-  if (maxValue === green) {
-    console.log(`Line ${lineNumber}: Green dominant, setting as confirmed`);
-    return 'confirmed';
-  }
-  if (maxValue === red) {
-    console.log(`Line ${lineNumber}: Red dominant, setting as cancelled`);
-    return 'cancelled';
-  }
-  
-  console.log(`Line ${lineNumber}: No dominant color, defaulting to pending`);
+  console.log(`Line ${lineNumber}: No clear color dominance, defaulting to pending`);
   return 'pending';
 }
 
