@@ -13,9 +13,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Fetch formatting specifically for column G
+  // Fetch formatting for column G specifically
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/ranges/'STUDIO 338 - 2025'!G:G?fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -30,7 +30,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
-  // Extract the row data which contains the formatting information for column G
+  // Extract the row data which contains the formatting information
   const rowFormatting = formatting.sheets?.[0]?.data?.[0]?.rowData || [];
   
   console.log('Column G formatting data:', JSON.stringify(rowFormatting, null, 2));
@@ -50,11 +50,14 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const room = row[2] || '' // Column D
       const promoter = row[3] || '' // Column E
       const capacity = row[4] || '' // Column F
+      
+      // Get color from formatting data
       const statusColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
 
-      console.log(`Processing row ${index + 1} for ${dateStr}:`, {
-        statusColor,
-        rowFormatting: JSON.stringify(formatting[index]?.values?.[0], null, 2)
+      console.log(`Processing row ${index + 1}:`, {
+        dateStr,
+        title,
+        statusColor
       });
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
@@ -85,16 +88,13 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return null
       }
 
-      const status = determineStatus(statusColor);
-      console.log(`Date: ${dateStr}, Status determined: ${status}, Color values:`, statusColor);
-
       return {
         date: date.toISOString().split('T')[0],
         title: title,
         room: room,
         promoter: promoter,
         capacity: capacity,
-        status: status,
+        status: determineStatus(statusColor),
         is_recurring: false
       }
     })
@@ -107,31 +107,23 @@ function determineStatus(formatting: any) {
     return 'pending';
   }
 
-  console.log('Analyzing color values:', {
-    red: formatting.red,
-    green: formatting.green,
-    blue: formatting.blue
-  });
+  console.log('Analyzing color values:', formatting);
 
-  // Check for pure green (confirmed)
+  // Check for green (confirmed)
   if (formatting.green > 0.8 && formatting.red < 0.2 && formatting.blue < 0.2) {
-    console.log('Found green background, setting status to confirmed');
     return 'confirmed';
   }
   
   // Check for yellow/orange (pending)
   if (formatting.red > 0.8 && formatting.green > 0.5 && formatting.blue < 0.3) {
-    console.log('Found yellow/orange background, setting status to pending');
     return 'pending';
   }
   
   // Check for red (cancelled)
   if (formatting.red > 0.8 && formatting.green < 0.2 && formatting.blue < 0.2) {
-    console.log('Found red background, setting status to cancelled');
     return 'cancelled';
   }
 
   // Default case
-  console.log('No specific color match found, defaulting to pending');
   return 'pending';
 }
