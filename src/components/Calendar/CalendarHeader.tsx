@@ -23,7 +23,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       </Button>
       
       <div className="flex-1 flex justify-center">
-        <h1 className="text-4xl font-bold text-white w-[400px] text-center">
+        <h1 className="text-4xl font-bold text-white w-[600px] text-center">
           {format(currentDate, 'MMMM yyyy')}
         </h1>
       </div>
