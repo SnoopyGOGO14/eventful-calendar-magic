@@ -32,11 +32,18 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
+  // Log analysis of rows
+  console.log('--- Row Analysis Start ---');
+  (values.values || []).forEach((row: any[], index: number) => {
+    const lineNumber = index + 1;
+    const hasDate = row[0] && row[0].trim() !== '';
+    console.log(`Line ${lineNumber}: ${hasDate ? 'Contains data' : 'Blank line'} - Value: "${row[0] || 'empty'}"`)
+  });
+  console.log('--- Row Analysis End ---');
+
   // Extract the row data which contains the formatting information
   const rowFormatting = formatting.sheets?.[0]?.data?.[0]?.rowData || [];
   
-  console.log('Column G formatting data:', JSON.stringify(rowFormatting, null, 2));
-
   return {
     values: values.values || [],
     formatting: rowFormatting
