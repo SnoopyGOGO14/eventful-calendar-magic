@@ -59,12 +59,19 @@ function determineStatusFromColor(color: any) {
   return 'pending';
 }
 
+function isValidDateString(dateStr: string): boolean {
+  // Check if the string contains a day name followed by a number
+  // Example: "Tues 28" or "Mon 1"
+  const datePattern = /^(Mon|Tues|Wed|Thurs|Fri|Sat|Sun)\s+\d+$/;
+  return datePattern.test(dateStr.trim());
+}
+
 export function parseSheetRows(rows: string[][], formatting: any[]) {
   return rows
     .filter((row: string[], index: number) => {
-      const hasDate = row[0]; // Column B (date)
-      const hasContent = row.slice(1, 6).some(cell => cell?.trim()); // Check columns C through G
-      return hasDate && hasContent;
+      // Only process rows that have a valid date in column B
+      const dateCell = row[0]?.trim(); // Column B
+      return dateCell && isValidDateString(dateCell);
     })
     .map((row: string[], index: number) => {
       const dateStr = row[0] // Column B
@@ -91,6 +98,8 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
 
       const date = new Date(2025, month, day)
       if (isNaN(date.getTime())) return null;
+
+      console.log(`Processing row with date: ${dateStr}, title: ${title}`); // Debug log
 
       return {
         date: date.toISOString().split('T')[0],
