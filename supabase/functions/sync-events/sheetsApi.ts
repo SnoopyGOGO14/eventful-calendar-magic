@@ -94,7 +94,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
       const status = determineStatusFromColor(bgColor, index + 1, dateStr);
 
-      // Handle special date formats
+      // Parse date string and ensure it's always 2025
       let date: Date;
       if (dateStr.includes('NYE')) {
         date = new Date(2025, 11, 31); // December 31st, 2025
