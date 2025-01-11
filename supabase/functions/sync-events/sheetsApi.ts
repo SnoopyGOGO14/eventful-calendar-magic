@@ -43,6 +43,14 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
+function isValidDateString(dateStr: string): boolean {
+  if (!dateStr || typeof dateStr !== 'string') return false;
+  
+  // Match pattern like "Tues 28" or "Mon 1" etc.
+  const pattern = /^(Mon|Tues|Wed|Thurs|Fri|Sat|Sun)\s+\d{1,2}$/;
+  return pattern.test(dateStr.trim());
+}
+
 function determineStatusFromColor(color: any) {
   if (!color) return 'pending';
 
@@ -61,13 +69,19 @@ function determineStatusFromColor(color: any) {
 
 export function parseSheetRows(rows: string[][], formatting: any[]) {
   return rows
-    .filter((row: string[], index: number) => {
-      const hasDate = row[0]; // Column B (date)
-      const hasContent = row.slice(1, 6).some(cell => cell?.trim()); // Check columns C through G
-      return hasDate && hasContent;
-    })
     .map((row: string[], index: number) => {
-      const dateStr = row[0] // Column B
+      // Log the current line number (add 1 because array is 0-based)
+      const lineNumber = index + 1;
+      const dateStr = row[0]?.trim(); // Column B
+
+      // Skip if date string is invalid
+      if (!isValidDateString(dateStr)) {
+        console.log(`Line ${lineNumber}: Skipping invalid/empty date: "${dateStr}"`);
+        return null;
+      }
+
+      console.log(`Line ${lineNumber}: Processing date: "${dateStr}"`);
+
       const columnC = row[1]?.trim() || '' // Column C
       const room = row[2]?.trim() || '' // Column D
       const promoter = row[3]?.trim() || '' // Column E
@@ -80,17 +94,24 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         title = [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event';
       }
       
+      // Get formatting for this row, accounting for header row
       const cellFormat = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
+      console.log(`Line ${lineNumber}: Cell format:`, cellFormat);
+      
       const status = determineStatusFromColor(cellFormat);
+      console.log(`Line ${lineNumber}: Determined status: ${status}`);
 
-      const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
+      const [dayName, monthName, dayNum] = dateStr.split(' ')
       const month = new Date(`${monthName} 1, 2025`).getMonth()
       const day = parseInt(dayNum)
       
       if (month === 0 && day === 1) return null;
 
       const date = new Date(2025, month, day)
-      if (isNaN(date.getTime())) return null;
+      if (isNaN(date.getTime())) {
+        console.log(`Line ${lineNumber}: Invalid date calculation`);
+        return null;
+      }
 
       return {
         date: date.toISOString().split('T')[0],
