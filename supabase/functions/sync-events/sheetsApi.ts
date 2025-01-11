@@ -112,12 +112,12 @@ function determineStatus(contractStatus: string, formatting: any) {
     blue: formatting.blue
   });
 
-  // Check for green background (common Google Sheets green values)
+  // More permissive green detection
   if (
-    (formatting.green > 0.8) || // Bright green
-    (formatting.green > 0.6 && formatting.red < 0.3) || // Dark green
-    (formatting.green === 1 && formatting.red === 0.8509804) || // Light green
-    (formatting.green > 0.85 && formatting.red > 0.85) // Pale green
+    (formatting.green > 0.7) || // Any predominantly green color
+    (formatting.green > formatting.red && formatting.green > formatting.blue) || // More green than other colors
+    (formatting.green > 0.85 && formatting.red > 0.85) || // Pale green
+    (formatting.green === 0.7176471 && formatting.red === 0.6509804) // Specific Google Sheets green
   ) {
     console.log('Found green background, setting status to confirmed');
     return 'confirmed';
