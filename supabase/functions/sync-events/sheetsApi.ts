@@ -46,23 +46,29 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
 
   const { red = 0, green = 0, blue = 0 } = bgColor;
   
+  // Define tolerance for detecting shades
+  const TOLERANCE = 0.15;
+  
+  // Log detailed color information for debugging
   console.log(`Row ${rowNumber} (${dateStr}) RGB values: R:${red.toFixed(3)} G:${green.toFixed(3)} B:${blue.toFixed(3)}`);
 
-  // More precise color detection
-  // Yellow detection (high red and green, low blue)
-  if (red > 0.8 && green > 0.8 && blue < 0.3) {
+  // Helper function to check if value is within tolerance range
+  const isWithinTolerance = (value: number, target: number) => Math.abs(value - target) <= TOLERANCE;
+
+  // Yellow detection (high red & green, low blue)
+  if (isWithinTolerance(red, 0.9) && isWithinTolerance(green, 0.9) && blue < 0.3) {
     console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
     return 'pending';
   }
   
-  // Green detection (predominantly green)
-  if (green > 0.8 && red < 0.5 && blue < 0.5) {
+  // Green detection (dominantly green, low red and blue)
+  if (isWithinTolerance(green, 0.9) && red < 0.5 && blue < 0.5) {
     console.log(`Row ${rowNumber} (${dateStr}): GREEN detected → Confirmed`);
     return 'confirmed';
   }
   
-  // Red detection (predominantly red)
-  if (red > 0.8 && green < 0.5 && blue < 0.5) {
+  // Red detection (dominantly red, low green and blue)
+  if (isWithinTolerance(red, 0.9) && green < 0.5 && blue < 0.5) {
     console.log(`Row ${rowNumber} (${dateStr}): RED detected → Cancelled`);
     return 'cancelled';
   }
