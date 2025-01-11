@@ -20,7 +20,6 @@ export interface Event {
 }
 
 export const Calendar = () => {
-  // Initialize with January 2026 as the default date
   const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -33,6 +32,8 @@ export const Calendar = () => {
       await syncEvents('18KbXdfe2EfjtP3YahNRs1uJauMoK0yZsJCwzeCBu1kc');
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Calendar synced successfully!');
+      // Refresh the window to get fresh data
+      window.location.reload();
     } catch (error) {
       console.error('Sync error:', error);
       toast.error('Failed to sync calendar. Please try again.');
