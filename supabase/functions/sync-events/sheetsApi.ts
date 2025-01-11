@@ -1,7 +1,7 @@
 import { fetchSheetData, parseSheetRows } from './sheetsApi.ts'
 
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
-  // First fetch the values
+  // First fetch the values (including dates from Column B)
   const valuesResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
     {
@@ -15,7 +15,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Specifically request background color formatting for column G
+  // Fetch only background color formatting for Column G
   const formattingResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
@@ -32,78 +32,73 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
-  // Special check for line 13 (January 18th, 2025)
-  console.log('\n=== SPECIAL LINE 13 CHECK ===');
-  const line13Index = 12; // 0-based index for line 13
-  const line13Data = values.values?.[line13Index] || [];
-  const line13Date = line13Data[0]?.trim() || '';
-  const line13Format = formatting.sheets?.[0]?.data?.[0]?.rowData?.[line13Index]?.values?.[0]?.userEnteredFormat;
-  const line13BgColor = line13Format?.backgroundColor;
-
-  console.log('Line 13 Analysis:');
-  console.log(`Date in spreadsheet: "${line13Date}"`);
-  console.log('Cell being checked: Column G, Row 13 (Background Color Only)');
-  console.log(`Full row data:`, JSON.stringify(line13Data));
-  console.log(`Background Color data from Column G:`, JSON.stringify(line13BgColor, null, 2));
-
-  if (line13Date.includes('Sat Jan 18')) {
-    console.log('✅ Date match confirmed for Line 13: January 18th, 2025');
-    console.log('Background Color Analysis for Line 13 (Column G):');
-    const status = determineStatusFromColor(line13BgColor, 13);
-    console.log(`Final status determination: ${status}`);
-  } else {
-    console.log('⚠️ Line 13 does not contain January 18th, 2025');
-    console.log(`Found date: ${line13Date}`);
-  }
-
-  // Continue with regular analysis
-  console.log('\n=== REGULAR SPREADSHEET ANALYSIS ===');
-
-  // Extract the row data which contains the formatting information
-  const rowFormatting = formatting.sheets?.[0]?.data?.[0]?.rowData || [];
+  // Debug log for data validation
+  console.log('\n=== SPREADSHEET DATA VALIDATION ===');
   
+  // Analyze each row, focusing on dates and background colors
+  values.values?.forEach((row: any[], index: number) => {
+    const dateStr = row[0]?.trim() || ''; // Column B (date)
+    const rowNumber = index + 1;
+    
+    // Get background color for this row's Column G
+    const bgColor = formatting.sheets?.[0]?.data?.[0]?.rowData?.[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
+    
+    console.log(`\nRow ${rowNumber} Analysis:`);
+    console.log(`Date in Column B: "${dateStr}"`);
+    console.log(`Background Color in Column G:`, JSON.stringify(bgColor, null, 2));
+
+    // Special attention to line 13 (January 18th, 2025)
+    if (rowNumber === 13) {
+      console.log('\n=== SPECIAL LINE 13 CHECK ===');
+      console.log(`Line 13 date: "${dateStr}"`);
+      if (dateStr.includes('Sat Jan 18')) {
+        console.log('✅ Confirmed: Line 13 contains January 18th, 2025');
+      } else {
+        console.log('⚠️ Warning: Line 13 does not match expected January 18th date');
+      }
+    }
+  });
+
   return {
     values: values.values || [],
-    formatting: rowFormatting,
-    lineNumbers: values.values ? values.values.map((_: any, index: number) => index + 1) : []
+    formatting: formatting.sheets?.[0]?.data?.[0]?.rowData || [],
   };
 }
 
-function determineStatusFromColor(color: any, lineNumber: number) {
-  if (!color) {
-    console.log(`Line ${lineNumber}: No background color found in Column G, defaulting to pending`);
+function determineStatusFromColor(bgColor: any, rowNumber: number) {
+  if (!bgColor) {
+    console.log(`Row ${rowNumber}: No background color found in Column G, defaulting to pending`);
     return 'pending';
   }
 
-  const { red = 0, green = 0, blue = 0 } = color;
+  const { red = 0, green = 0, blue = 0 } = bgColor;
   
-  console.log(`Line ${lineNumber} Column G: Background Color values - R:${red} G:${green} B:${blue}`);
+  console.log(`Row ${rowNumber} Column G Background Color: R:${red} G:${green} B:${blue}`);
   
-  // Enhanced color detection with specific thresholds
-  // Only looking at background colors, ignoring any text colors
+  // Clear threshold definitions for background colors
   const isGreen = green > Math.max(red, blue) && green > 0.5;
   const isRed = red > Math.max(green, blue) && red > 0.5;
   const isYellow = red > 0.5 && green > 0.5 && blue < 0.3;
   
   if (isGreen) {
-    console.log(`Line ${lineNumber}: Green background in Column G (Confirmed)`);
+    console.log(`Row ${rowNumber}: Green background detected (Confirmed)`);
     return 'confirmed';
   }
   if (isRed) {
-    console.log(`Line ${lineNumber}: Red background in Column G (Cancelled)`);
+    console.log(`Row ${rowNumber}: Red background detected (Cancelled)`);
     return 'cancelled';
   }
   if (isYellow) {
-    console.log(`Line ${lineNumber}: Yellow background in Column G (Pending)`);
+    console.log(`Row ${rowNumber}: Yellow background detected (Pending)`);
     return 'pending';
   }
   
-  console.log(`Line ${lineNumber}: No clear background color in Column G, defaulting to pending`);
+  console.log(`Row ${rowNumber}: No specific background color detected, defaulting to pending`);
   return 'pending';
 }
 
-export function parseSheetRows(rows: string[][], formatting: any[]) {
-  return rows
+export function parseSheetRows(values: string[][], formatting: any[]) {
+  return values
     .filter((row: string[], index: number) => {
       const hasDate = row[0]; // Column B (date)
       const hasContent = row.slice(1, 6).some(cell => cell?.trim()); // Check columns C through G
@@ -117,16 +112,17 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const capacity = row[4]?.trim() || '' // Column F
       const columnG = row[5]?.trim() || '' // Column G
 
-      // Find the first non-empty value to use as title
+      // Get title from first non-empty value
       let title = columnC;
       if (!title) {
         title = [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event';
       }
       
-      // Get color information for this specific row
-      const cellFormat = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-      const status = determineStatusFromColor(cellFormat, index + 1);
+      // Get background color information for this row
+      const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
+      const status = determineStatusFromColor(bgColor, index + 1);
 
+      // Parse date
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
       const month = new Date(`${monthName} 1, 2025`).getMonth()
       const day = parseInt(dayNum)
@@ -144,8 +140,8 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         capacity: capacity,
         status: status,
         is_recurring: false,
-        _sheet_line_number: index + 1 // Store the line number
+        _sheet_line_number: index + 1
       }
     })
-    .filter(event => event !== null)
+    .filter(event => event !== null);
 }
