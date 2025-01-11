@@ -61,9 +61,9 @@ serve(async (req) => {
         const month = new Date(`${monthName} 1, 2025`).getMonth()
         const day = parseInt(dayNum)
         
-        // Skip creating events for January 1st if they're actually NYE events
-        if (month === 0 && day === 1 && title.toLowerCase().includes('dab')) {
-          console.log(`Skipping January 1st event: ${title} as it's likely a NYE event`)
+        // Skip creating events for January 1st as they're likely NYE events from previous year
+        if (month === 0 && day === 1) {
+          console.log(`Skipping January 1st event: ${title} as it's likely a NYE event from previous year`)
           return null
         }
 
