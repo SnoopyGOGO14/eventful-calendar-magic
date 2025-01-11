@@ -29,7 +29,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       <Button
         variant="outline"
         onClick={() => onDateChange(addMonths(currentDate, 1))}
-        className="absolute right-20"
+        className="absolute right-0"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
