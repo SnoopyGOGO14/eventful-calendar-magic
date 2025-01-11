@@ -41,9 +41,15 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
     }
   };
 
+  // Only show scrollbar if there are multiple events that might overflow
+  const hasMultipleEvents = events.length > 1;
+
   return (
     <div 
-      className="min-h-[120px] bg-[#234B61] p-2 rounded-lg relative cursor-pointer hover:bg-[#2D5D78] transition-colors overflow-y-auto"
+      className={cn(
+        "min-h-[120px] bg-[#234B61] p-2 rounded-lg relative cursor-pointer hover:bg-[#2D5D78] transition-colors",
+        hasMultipleEvents && "overflow-y-auto"
+      )}
       onClick={() => onSelect(date)}
     >
       <div className="text-white mb-2">
