@@ -39,12 +39,12 @@ serve(async (req) => {
 
     const events = parseSheetRows(values, formatting)
 
-    // First, delete ALL existing events
+    // First, delete ALL existing events using a simple delete query
     console.log('Clearing ALL existing events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .neq('id', 'dummy') // This will delete all rows
+      .gt('id', '00000000-0000-0000-0000-000000000000') // This will delete all rows
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
