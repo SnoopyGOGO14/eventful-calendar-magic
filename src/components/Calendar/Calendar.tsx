@@ -7,6 +7,7 @@ import { useCalendarData } from '@/hooks/useCalendarData';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { syncEvents } from '@/utils/syncEvents';
+import { useQueryClient } from '@tanstack/react-query';
 
 export interface Event {
   date: string;
@@ -16,16 +17,17 @@ export interface Event {
 }
 
 export const Calendar = () => {
-  // Initialize with January 2025
   const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const queryClient = useQueryClient();
   const { events, isLoading } = useCalendarData();
 
   const handleSync = async () => {
     setIsSyncing(true);
     try {
       await syncEvents('18KbXdfe2EfjtP3YahNRs1uJauMoK0yZsJCwzeCBu1kc');
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Calendar synced successfully!');
     } catch (error) {
       toast.error('Failed to sync calendar. Please try again.');

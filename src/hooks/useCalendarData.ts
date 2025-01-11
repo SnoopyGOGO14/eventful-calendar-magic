@@ -1,41 +1,31 @@
 import { useState, useEffect } from 'react';
 import { Event } from '@/components/Calendar/Calendar';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 export const useCalendarData = () => {
-  const [events, setEvents] = useState<(Event & { date: string })[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const fetchEvents = async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*');
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('events')
-          .select('*');
+    if (error) {
+      console.error('Error fetching events:', error);
+      throw error;
+    }
 
-        if (error) {
-          console.error('Error fetching events:', error);
-          return;
-        }
+    return (data || []).map(item => ({
+      date: item.date,
+      title: item.title,
+      status: (item.status as "confirmed" | "pending" | "cancelled") || "pending",
+      isRecurring: item.is_recurring
+    }));
+  };
 
-        // Transform the data to match the Event type
-        const transformedData = (data || []).map(item => ({
-          date: item.date,
-          title: item.title,
-          status: (item.status as "confirmed" | "pending" | "cancelled") || "pending",
-          isRecurring: item.is_recurring
-        }));
-
-        setEvents(transformedData);
-      } catch (error) {
-        console.error('Error in fetchEvents:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchEvents();
-  }, []);
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['events'],
+    queryFn: fetchEvents,
+  });
 
   return { events, isLoading };
 };
