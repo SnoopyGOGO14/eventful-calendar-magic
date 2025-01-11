@@ -34,11 +34,10 @@ serve(async (req) => {
     const accessToken = await getAccessToken(credentials)
 
     console.log('Fetching data from 2025 tab...')
-    const data = await fetchSheetData(spreadsheetId, accessToken)
-    const rows = data.values || []
-    console.log(`Found ${rows.length} rows in 2025 tab`)
+    const { values, formatting } = await fetchSheetData(spreadsheetId, accessToken)
+    console.log(`Found ${values.length} rows in 2025 tab`)
 
-    const events = parseSheetRows(rows)
+    const events = parseSheetRows(values, formatting)
 
     console.log('Clearing existing 2025 events...')
     const { error: deleteError } = await supabase
