@@ -51,23 +51,23 @@ function isInRange(value: number, range: { min: number, max: number }): boolean 
 }
 
 // Adjusted color ranges based on actual Google Sheets values
+
+// Update our color detection to use hex values instead of RGB ranges
 const TARGET_COLORS = {
-  green: { 
-    red: { min: 0.20, max: 0.22 }, 
-    green: { min: 0.65, max: 0.67 }, 
-    blue: { min: 0.32, max: 0.34 } 
-  },
-  yellow: { 
-    red: { min: 0.97, max: 1.0 }, 
-    green: { min: 0.73, max: 0.76 }, 
-    blue: { min: 0.01, max: 0.04 } 
-  },
-  red: { 
-    red: { min: 0.94, max: 1.0 }, 
-    green: { min: 0, max: 0.1 }, 
-    blue: { min: 0, max: 0.1 } 
-  }
+  // Standard Google Sheets colors for green, yellow, and red
+  green: '#93c47d',  // Google Sheets' default light green
+  yellow: '#ffd966', // Google Sheets' default yellow
+  red: '#e06666',    // Google Sheets' default light red
 };
+
+function rgbToHex(color: { red: number; green: number; blue: number }): string {
+  const toHex = (n: number) => {
+    const hex = Math.round(n * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  
+  return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
+}
 
 function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string): string {
   if (!bgColor) {
@@ -75,44 +75,42 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'pending';
   }
 
-  // Enhanced debugging for all events
-  console.log(`Color values for ${dateStr}:`, {
-    red: bgColor.red.toFixed(4),
-    green: bgColor.green.toFixed(4),
-    blue: bgColor.blue.toFixed(4)
-  });
+  const hexColor = rgbToHex(bgColor);
+  console.log(`Color for ${dateStr}: ${hexColor}`);
 
-  // Check for green (confirmed)
-  if (isInRange(bgColor.red, TARGET_COLORS.green.red) &&
-      isInRange(bgColor.green, TARGET_COLORS.green.green) &&
-      isInRange(bgColor.blue, TARGET_COLORS.green.blue)) {
-    console.log(`${dateStr}: GREEN detected → Confirmed`);
+  // Allow for slight variations in the hex colors
+  const isCloseTo = (color1: string, color2: string, tolerance: number = 20) => {
+    // Convert hex to RGB
+    const hex1 = color1.substring(1);
+    const hex2 = color2.substring(1);
+    const r1 = parseInt(hex1.substring(0, 2), 16);
+    const g1 = parseInt(hex1.substring(2, 4), 16);
+    const b1 = parseInt(hex1.substring(4, 6), 16);
+    const r2 = parseInt(hex2.substring(0, 2), 16);
+    const g2 = parseInt(hex2.substring(2, 4), 16);
+    const b2 = parseInt(hex2.substring(4, 6), 16);
+
+    // Check if the difference between each RGB component is within tolerance
+    return Math.abs(r1 - r2) <= tolerance &&
+           Math.abs(g1 - g2) <= tolerance &&
+           Math.abs(b1 - b2) <= tolerance;
+  };
+
+  // Check against our target colors with some tolerance
+  if (isCloseTo(hexColor, TARGET_COLORS.green)) {
+    console.log(`${dateStr}: GREEN detected (${hexColor}) → Confirmed`);
     return 'confirmed';
   }
-
-  // Check for yellow (pending)
-  if (isInRange(bgColor.red, TARGET_COLORS.yellow.red) &&
-      isInRange(bgColor.green, TARGET_COLORS.yellow.green) &&
-      isInRange(bgColor.blue, TARGET_COLORS.yellow.blue)) {
-    console.log(`${dateStr}: YELLOW detected → Pending`);
+  if (isCloseTo(hexColor, TARGET_COLORS.yellow)) {
+    console.log(`${dateStr}: YELLOW detected (${hexColor}) → Pending`);
     return 'pending';
   }
-
-  // Check for red (cancelled)
-  if (isInRange(bgColor.red, TARGET_COLORS.red.red) &&
-      isInRange(bgColor.green, TARGET_COLORS.red.green) &&
-      isInRange(bgColor.blue, TARGET_COLORS.red.blue)) {
-    console.log(`${dateStr}: RED detected → Cancelled`);
+  if (isCloseTo(hexColor, TARGET_COLORS.red)) {
+    console.log(`${dateStr}: RED detected (${hexColor}) → Cancelled`);
     return 'cancelled';
   }
 
-  // Check for white (1,1,1) explicitly
-  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`${dateStr}: WHITE detected → Pending`);
-    return 'pending';
-  }
-
-  console.log(`${dateStr}: No color match found for RGB(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}), defaulting to pending`);
+  console.log(`${dateStr}: No color match found for ${hexColor}, defaulting to pending`);
   return 'pending';
 }
 
