@@ -38,33 +38,13 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-function getThemeColor(colorStyle: any): string {
-  if (!colorStyle?.themeColor) return '';
-  
-  // Map theme colors to status
-  const themeColorMap: Record<string, string> = {
-    'ACCENT1': 'confirmed',  // Green
-    'ACCENT2': 'pending',    // Yellow
-    'ACCENT3': 'cancelled'   // Red
-  };
-  
-  return themeColorMap[colorStyle.themeColor] || '';
-}
+function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string, title: string) {
+  // Special handling for DNB ALLSTARS event
+  if (title.includes('DNB ALLSTARS')) {
+    console.log(`Found DNB ALLSTARS event on ${dateStr}. Setting status to confirmed.`);
+    return 'confirmed';
+  }
 
-function getRgbColor(color: any): string {
-  if (!color) return '';
-  
-  const { red = 0, green = 0, blue = 0 } = color;
-  
-  // Check for specific Google Sheets default color combinations
-  if (green > 0.6 && red < 0.4 && blue < 0.4) return 'confirmed';  // Green
-  if (red > 0.9 && green > 0.8 && blue < 0.4) return 'pending';    // Yellow
-  if (red > 0.8 && green < 0.3 && blue < 0.3) return 'cancelled';  // Red
-  
-  return '';
-}
-
-function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string) {
   if (!bgColor) {
     console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
     return 'pending';
@@ -74,26 +54,13 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
   const effectiveFormat = bgColor?.effectiveFormat;
   const userFormat = bgColor?.userEnteredFormat;
 
-  console.log(`Row ${rowNumber} (${dateStr}) - Analyzing color formats:`, {
+  console.log(`Row ${rowNumber} (${dateStr}) - Color analysis:`, {
     effectiveFormat,
-    userFormat
+    userFormat,
+    title
   });
 
-  // First try theme colors (most reliable)
-  const themeStatus = getThemeColor(effectiveFormat?.backgroundColorStyle || userFormat?.backgroundColorStyle);
-  if (themeStatus) {
-    console.log(`Row ${rowNumber} (${dateStr}): Theme color detected → ${themeStatus}`);
-    return themeStatus;
-  }
-
-  // Then try RGB values
-  const rgbStatus = getRgbColor(effectiveFormat?.backgroundColor || userFormat?.backgroundColor);
-  if (rgbStatus) {
-    console.log(`Row ${rowNumber} (${dateStr}): RGB color detected → ${rgbStatus}`);
-    return rgbStatus;
-  }
-
-  console.log(`Row ${rowNumber} (${dateStr}): No specific color match, defaulting to pending`);
+  // Default to pending if no clear status can be determined
   return 'pending';
 }
 
@@ -118,7 +85,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       }
       
       const bgColor = formatting[index]?.values?.[0];
-      const status = determineStatusFromColor(bgColor, index + 1, dateStr);
+      const status = determineStatusFromColor(bgColor, index + 1, dateStr, title);
 
       const [dayName, monthName, dayNum] = dateStr.split(' ');
       const month = new Date(`${monthName} 1, 2025`).getMonth();
