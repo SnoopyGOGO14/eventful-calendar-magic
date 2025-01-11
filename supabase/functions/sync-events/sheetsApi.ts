@@ -41,11 +41,13 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   console.log('Line 13 Analysis:');
   console.log(`Date in spreadsheet: "${line13Date}"`);
-  console.log(`Color data:`, JSON.stringify(line13Color, null, 2));
+  console.log('Cell being checked: Column G, Row 13');
+  console.log(`Full row data:`, JSON.stringify(line13Data));
+  console.log(`Color data from Column G:`, JSON.stringify(line13Color, null, 2));
 
   if (line13Date.includes('Sat Jan 18')) {
     console.log('✅ Date match confirmed for Line 13: January 18th, 2025');
-    console.log('Color Analysis for Line 13:');
+    console.log('Color Analysis for Line 13 (Column G):');
     const status = determineStatusFromColor(line13Color, 13);
     console.log(`Final status determination: ${status}`);
   } else {
@@ -68,13 +70,13 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
 function determineStatusFromColor(color: any, lineNumber: number) {
   if (!color) {
-    console.log(`Line ${lineNumber}: No color found, defaulting to pending`);
+    console.log(`Line ${lineNumber}: No color found in Column G, defaulting to pending`);
     return 'pending';
   }
 
   const { red = 0, green = 0, blue = 0 } = color;
   
-  console.log(`Line ${lineNumber}: Color values - R:${red} G:${green} B:${blue}`);
+  console.log(`Line ${lineNumber} Column G: Color values - R:${red} G:${green} B:${blue}`);
   
   // Enhanced color detection with specific thresholds
   const isGreen = green > Math.max(red, blue) && green > 0.5;
@@ -82,19 +84,19 @@ function determineStatusFromColor(color: any, lineNumber: number) {
   const isYellow = red > 0.5 && green > 0.5 && blue < 0.3;
   
   if (isGreen) {
-    console.log(`Line ${lineNumber}: Green dominant (Confirmed)`);
+    console.log(`Line ${lineNumber}: Green dominant in Column G (Confirmed)`);
     return 'confirmed';
   }
   if (isRed) {
-    console.log(`Line ${lineNumber}: Red dominant (Cancelled)`);
+    console.log(`Line ${lineNumber}: Red dominant in Column G (Cancelled)`);
     return 'cancelled';
   }
   if (isYellow) {
-    console.log(`Line ${lineNumber}: Yellow detected (Pending)`);
+    console.log(`Line ${lineNumber}: Yellow detected in Column G (Pending)`);
     return 'pending';
   }
   
-  console.log(`Line ${lineNumber}: No clear color dominance, defaulting to pending`);
+  console.log(`Line ${lineNumber}: No clear color dominance in Column G, defaulting to pending`);
   return 'pending';
 }
 
