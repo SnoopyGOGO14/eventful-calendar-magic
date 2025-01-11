@@ -95,7 +95,7 @@ serve(async (req) => {
       .from('events')
       .delete()
       .gte('date', '2025-01-01')
-      .lt('2026-01-01')
+      .lt('date', '2026-01-01') // Fixed: Corrected the date comparison syntax
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
