@@ -38,39 +38,66 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
+function hexToRgb(hex: string) {
+  const bigint = parseInt(hex.slice(1), 16);
+  return {
+    red: ((bigint >> 16) & 255) / 255,
+    green: ((bigint >> 8) & 255) / 255,
+    blue: (bigint & 255) / 255,
+  };
+}
+
+function isColorInRange(color: any, target: any, tolerance: number) {
+  if (!color) return false;
+  return (
+    Math.abs(color.red - target.red) <= tolerance &&
+    Math.abs(color.green - target.green) <= tolerance &&
+    Math.abs(color.blue - target.blue) <= tolerance
+  );
+}
+
 function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string) {
   if (!bgColor) {
     console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
     return 'pending';
   }
 
-  const { red = 0, green = 0, blue = 0 } = bgColor;
-  
-  // Define tolerance for detecting shades
-  const TOLERANCE = 0.15;
-  
-  // Log detailed color information for debugging
-  console.log(`Row ${rowNumber} (${dateStr}) RGB values: R:${red.toFixed(3)} G:${green.toFixed(3)} B:${blue.toFixed(3)}`);
+  // If bgColor is in hex, convert it to RGB
+  if (typeof bgColor === 'string' && bgColor.startsWith('#')) {
+    bgColor = hexToRgb(bgColor);
+  }
 
-  // Helper function to check if value is within tolerance range
-  const isWithinTolerance = (value: number, target: number) => Math.abs(value - target) <= TOLERANCE;
+  // Define standard colors
+  const YELLOW = { red: 1, green: 1, blue: 0 };
+  const GREEN = { red: 0, green: 1, blue: 0 };
+  const RED = { red: 1, green: 0, blue: 0 };
+  const TOLERANCE = 0.25; // Increased tolerance for better detection
 
-  // Yellow detection (high red & green, low blue)
-  if (isWithinTolerance(red, 1) && isWithinTolerance(green, 1) && blue < 0.3) {
+  // Log exact RGB values for debugging
+  console.log(`Row ${rowNumber} (${dateStr}) - RGB values:`, {
+    red: bgColor.red?.toFixed(3),
+    green: bgColor.green?.toFixed(3),
+    blue: bgColor.blue?.toFixed(3)
+  });
+
+  // Check against standard colors
+  if (isColorInRange(bgColor, YELLOW, TOLERANCE)) {
     console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
     return 'pending';
   }
-  
-  // Green detection (dominantly green, low red and blue)
-  if (isWithinTolerance(green, 1) && red < 0.3 && blue < 0.3) {
+  if (isColorInRange(bgColor, GREEN, TOLERANCE)) {
     console.log(`Row ${rowNumber} (${dateStr}): GREEN detected → Confirmed`);
     return 'confirmed';
   }
-  
-  // Red detection (dominantly red, low green and blue)
-  if (isWithinTolerance(red, 1) && green < 0.3 && blue < 0.3) {
+  if (isColorInRange(bgColor, RED, TOLERANCE)) {
     console.log(`Row ${rowNumber} (${dateStr}): RED detected → Cancelled`);
     return 'cancelled';
+  }
+
+  // Additional check for light yellow (which might appear more white-ish)
+  if (bgColor.red > 0.9 && bgColor.green > 0.9 && bgColor.blue < 0.3) {
+    console.log(`Row ${rowNumber} (${dateStr}): Light YELLOW detected → Pending`);
+    return 'pending';
   }
 
   console.log(`Row ${rowNumber} (${dateStr}): No specific color match, defaulting to pending`);
