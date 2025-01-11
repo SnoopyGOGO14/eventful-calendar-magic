@@ -112,19 +112,24 @@ function determineStatusFromColor(color: any) {
     return 'pending';
   }
 
-  // If there's any green at all, mark it as confirmed
-  if (color.green > 0) {
-    console.log('Green detected - Confirmed');
+  // Extract RGB values
+  const { red = 0, green = 0, blue = 0 } = color;
+  
+  console.log('Cell color values:', { red, green, blue });
+
+  // Check if green is the primary color (allowing for slight variations)
+  if (green > 0.4 && green > red && green > blue) {
+    console.log('Primary green detected - Confirmed');
     return 'confirmed';
   }
   
-  // If there's red but no green, it's cancelled
-  if (color.red > 0) {
-    console.log('Red detected - Cancelled');
+  // Check if red is the primary color
+  if (red > 0.4 && red > green && red > blue) {
+    console.log('Primary red detected - Cancelled');
     return 'cancelled';
   }
   
-  // If no clear color is detected
-  console.log('No clear color detected - Pending');
+  // If no clear primary color or yellow/orange detected
+  console.log('No primary color match - Pending');
   return 'pending';
 }
