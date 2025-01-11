@@ -20,7 +20,8 @@ export interface Event {
 }
 
 export const Calendar = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1));
+  // Initialize with January 2026 as the default date
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const queryClient = useQueryClient();

@@ -117,14 +117,17 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
         
         const monthName = parts[1];
         const dayNum = parseInt(parts[2]);
+        
+        // Determine if the date should be in 2025 or 2026
         const month = new Date(`${monthName} 1, 2025`).getMonth();
+        const year = month === 0 && dayNum === 1 ? 2026 : 2025;
         
         if (isNaN(month) || isNaN(dayNum)) {
           console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
           return null;
         }
 
-        date = new Date(2025, month, dayNum);
+        date = new Date(year, month, dayNum);
         console.log(`Row ${index + 1}: Regular event parsed for ${date.toISOString()}`);
       }
 
