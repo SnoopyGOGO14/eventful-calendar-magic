@@ -107,22 +107,16 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const monthName = parts[1];
       const dayNum = parseInt(parts[2]);
       
-      // Check if this is a January date that should be in 2026
-      // If we've already seen dates from later months in 2025,
-      // then this January date should be in 2026
+      // All dates should be in 2025
       const month = new Date(`${monthName} 1, 2025`).getMonth();
-      
-      // If it's January (month 0) and we've seen dates from December,
-      // this January date should be in 2026
-      const year = month === 0 && index > 0 ? 2026 : 2025;
       
       if (isNaN(month) || isNaN(dayNum)) {
         console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
         return null;
       }
 
-      date = new Date(year, month, dayNum);
-      console.log(`Row ${index + 1}: Event parsed for ${date.toISOString()} (Year: ${year})`);
+      date = new Date(2025, month, dayNum);
+      console.log(`Row ${index + 1}: Event parsed for ${date.toISOString()}`);
 
       // Validate date
       if (isNaN(date.getTime())) {
