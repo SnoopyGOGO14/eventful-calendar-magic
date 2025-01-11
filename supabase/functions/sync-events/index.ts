@@ -23,7 +23,6 @@ serve(async (req) => {
       throw new Error('Spreadsheet ID is required')
     }
 
-    // Get access token using service account
     const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS')
     if (!credentialsStr) {
       throw new Error('Google Sheets credentials not found')
@@ -32,7 +31,6 @@ serve(async (req) => {
     const credentials = JSON.parse(credentialsStr)
     const accessToken = await getAccessToken(credentials)
 
-    // Fetch data from Google Sheets - specifically from 2025 tab
     console.log('Fetching data from 2025 tab...')
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
@@ -52,45 +50,57 @@ serve(async (req) => {
     console.log(`Found ${rows.length} rows in 2025 tab`)
 
     const events = rows
-      .filter((row: string[]) => row[0] && row[1]) // Filter out empty rows
+      .filter((row: string[]) => row[0] && row[1])
       .map((row: string[], index: number) => {
         const dateStr = row[0] // Column B
         const title = row[1] || '' // Column C
         const contractStatus = (row[7] || '').toLowerCase() // Column I
 
-        // Parse the date string (e.g., "Friday January 10")
+        // Parse the date string (e.g., "Friday December 31")
         const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
         const month = new Date(`${monthName} 1, 2025`).getMonth()
-        const date = new Date(2025, month, parseInt(dayNum))
+        let year = 2025
 
-        // Skip invalid dates or dates not in 2025
-        if (isNaN(date.getTime()) || date.getFullYear() !== 2025) {
+        // Handle year transition for December 31st events
+        if (month === 11 && parseInt(dayNum) === 31) {
+          console.log(`Found NYE event: ${title}`)
+          // This is a NYE event, don't create an event for Jan 1st
+          if (title.toLowerCase().includes('nye')) {
+            return {
+              date: `2025-12-31`,
+              title: title,
+              status: contractStatus === 'yes' ? 'confirmed' : 'pending',
+              is_recurring: false
+            }
+          }
+        }
+
+        const date = new Date(year, month, parseInt(dayNum))
+        if (isNaN(date.getTime())) {
           console.warn(`Skipping invalid date in row ${index + 1}:`, dateStr)
           return null
         }
 
         return {
-          date: date.toISOString().split('T')[0], // YYYY-MM-DD format
+          date: date.toISOString().split('T')[0],
           title: title,
           status: contractStatus === 'yes' ? 'confirmed' : 'pending',
           is_recurring: false
         }
       })
-      .filter(event => event !== null) // Remove any null events
+      .filter(event => event !== null)
 
-    // Clear existing 2025 events
     console.log('Clearing existing 2025 events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
       .gte('date', '2025-01-01')
-      .lt('date', '2026-01-01')
+      .lt('2026-01-01')
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
     }
 
-    // Insert new events
     console.log('Inserting new events...')
     const { error: insertError } = await supabase
       .from('events')
@@ -104,30 +114,22 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ success: true, message: '2025 events synced successfully' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
   } catch (error) {
     console.error('Error syncing events:', error)
-    
     return new Response(
       JSON.stringify({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         details: error instanceof Error ? error.stack : undefined
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })
 
-// Helper function to get access token
 async function getAccessToken(credentials: any) {
   const now = Math.floor(Date.now() / 1000)
   
