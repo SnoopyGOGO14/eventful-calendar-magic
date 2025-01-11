@@ -47,13 +47,14 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const capacity = row[4] || '' // Column F
       const contractStatus = (row[7] || '').toLowerCase() // Column I
 
-      // Get background color from formatting
-      const rowFormatting = formatting[index]?.values?.[1]?.userEnteredFormat?.backgroundColor;
+      // Get background color from formatting - using index 7 for Column I (contract status)
+      const rowFormatting = formatting[index]?.values?.[7]?.userEnteredFormat?.backgroundColor;
       console.log(`Row ${index} formatting for ${dateStr}:`, {
         red: rowFormatting?.red,
         green: rowFormatting?.green,
         blue: rowFormatting?.blue,
-        raw: rowFormatting
+        raw: rowFormatting,
+        contractStatus: contractStatus
       });
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
@@ -109,7 +110,8 @@ function determineStatus(contractStatus: string, formatting: any) {
   console.log('Analyzing color values:', {
     red: formatting.red,
     green: formatting.green,
-    blue: formatting.blue
+    blue: formatting.blue,
+    contractStatus: contractStatus
   });
 
   // More permissive green detection
