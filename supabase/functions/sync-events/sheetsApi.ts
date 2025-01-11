@@ -13,9 +13,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Then fetch the formatting for column I only
+  // Then fetch the formatting for column I (contract status) only
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!I:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/ranges/'STUDIO 338 - 2025'!I:I?fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -29,10 +29,13 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
+  
+  // Extract the row data which contains the formatting information
+  const rowFormatting = formatting.sheets?.[0]?.data?.[0]?.rowData || [];
 
   return {
     values: values.values || [],
-    formatting: formatting.sheets?.[0]?.data?.[0]?.rowData || []
+    formatting: rowFormatting
   };
 }
 
@@ -47,13 +50,12 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const capacity = row[4] || '' // Column F
       const contractStatus = (row[7] || '').toLowerCase() // Column I
 
-      // Get background color from formatting using the direct line number
-      const rowFormatting = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-      console.log(`Row ${index + 1} formatting:`, {
-        dateStr,
-        rowFormatting,
+      // Get background color from the contract status column (I)
+      const cellFormatting = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
+      console.log(`Processing row for ${dateStr}:`, {
         contractStatus,
-        formattingLength: formatting.length
+        cellFormatting,
+        rowIndex: index
       });
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
@@ -73,7 +75,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
           room: room,
           promoter: promoter,
           capacity: capacity,
-          status: determineStatus(rowFormatting, contractStatus),
+          status: determineStatus(cellFormatting, contractStatus),
           is_recurring: false
         }
       }
@@ -84,8 +86,8 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return null
       }
 
-      const status = determineStatus(rowFormatting, contractStatus);
-      console.log(`Date: ${dateStr}, Status determined: ${status}, Color values:`, rowFormatting);
+      const status = determineStatus(cellFormatting, contractStatus);
+      console.log(`Date: ${dateStr}, Status determined: ${status}, Color values:`, cellFormatting);
 
       return {
         date: date.toISOString().split('T')[0],
@@ -113,22 +115,19 @@ function determineStatus(formatting: any, contractStatus: string) {
     contractStatus: contractStatus
   });
 
-  // More permissive green detection
-  if (formatting.green > 0.7 || // Any predominantly green color
-      (formatting.green > formatting.red && formatting.green > formatting.blue) || // More green than other colors
-      (formatting.green > 0.85 && formatting.red > 0.85) // Pale green
-  ) {
+  // Check for green background (confirmed)
+  if (formatting.green > 0.7 && formatting.red < 0.5) {
     console.log('Found green background, setting status to confirmed');
     return 'confirmed';
   }
   
-  // Check for yellow background
+  // Check for yellow background (pending)
   if (formatting.red > 0.8 && formatting.green > 0.8 && formatting.blue < 0.3) {
     console.log('Found yellow background, setting status to pending');
     return 'pending';
   }
   
-  // Check for red background
+  // Check for red background (cancelled)
   if (formatting.red > 0.8 && formatting.green < 0.3) {
     console.log('Found red background, setting status to cancelled');
     return 'cancelled';
