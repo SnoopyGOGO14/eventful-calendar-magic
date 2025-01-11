@@ -112,22 +112,19 @@ function determineStatusFromColor(color: any) {
     return 'pending';
   }
 
-  const { red = 0, green = 0, blue = 0 } = color;
-  
-  console.log('Color values:', { red, green, blue });
-
-  // Simple color detection - just check which color is dominant
-  if (green > red && green > blue) {
-    console.log('Green is dominant - Confirmed');
+  // If there's any green at all, mark it as confirmed
+  if (color.green > 0) {
+    console.log('Green detected - Confirmed');
     return 'confirmed';
   }
   
-  if (red > green && red > blue) {
-    console.log('Red is dominant - Cancelled');
+  // If there's red but no green, it's cancelled
+  if (color.red > 0) {
+    console.log('Red detected - Cancelled');
     return 'cancelled';
   }
   
-  // If neither green nor red is clearly dominant, or if yellow/orange (red + green)
-  console.log('Defaulting to pending');
+  // If no clear color is detected
+  console.log('No clear color detected - Pending');
   return 'pending';
 }
