@@ -94,13 +94,14 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
       const status = determineStatusFromColor(bgColor, index + 1, dateStr);
 
-      // Parse date string and ensure it's always 2025
+      // Handle special date formats and ensure all dates are in 2025
       let date: Date;
-      if (dateStr.includes('NYE')) {
+      if (dateStr.toLowerCase().includes('nye')) {
         date = new Date(2025, 11, 31); // December 31st, 2025
-      } else if (dateStr.includes('NYD')) {
+      } else if (dateStr.toLowerCase().includes('nyd')) {
         date = new Date(2025, 0, 1); // January 1st, 2025
       } else {
+        // Parse regular date format (e.g., "Friday January 3")
         const [dayName, monthName, dayNum] = dateStr.split(' ');
         const month = new Date(`${monthName} 1, 2025`).getMonth();
         const day = parseInt(dayNum);
