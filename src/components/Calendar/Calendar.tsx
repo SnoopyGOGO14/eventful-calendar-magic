@@ -36,7 +36,11 @@ export const Calendar = () => {
     if (now.getFullYear() === 2025) {
       return new Date(2025, now.getMonth(), 1);
     }
-    // Default to January 2025 if we're outside the expected range
+    // If we're beyond 2025, show December 2025
+    if (now.getFullYear() > 2025) {
+      return new Date(2025, 11, 1);
+    }
+    // Default to January 2025 if we're before December 2024
     return new Date(2025, 0, 1);
   };
 
