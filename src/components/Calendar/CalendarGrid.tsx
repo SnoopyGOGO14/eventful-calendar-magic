@@ -10,7 +10,7 @@ interface CalendarGridProps {
   onSelectDate: (date: Date) => void;
 }
 
-export const CalendarGrid = ({ days, currentDate, events, onSelectDate }: CalendarGridProps) => {
+export const CalendarGrid = ({ days, currentDate, events = [], onSelectDate }: CalendarGridProps) => {
   const isMobile = useIsMobile();
   const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -39,12 +39,12 @@ export const CalendarGrid = ({ days, currentDate, events, onSelectDate }: Calend
         </div>
       ))}
 
-      {allGridDays.map((day) => (
+      {allGridDays.map((date) => (
         <CalendarDay
-          key={day.toString()}
-          day={day}
+          key={date.toString()}
+          date={date}
           currentDate={currentDate}
-          event={getEventForDate(day)}
+          event={getEventForDate(date)}
           onSelect={onSelectDate}
         />
       ))}

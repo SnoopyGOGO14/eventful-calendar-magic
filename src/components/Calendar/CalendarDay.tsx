@@ -5,19 +5,17 @@ import { Event } from './Calendar';
 
 interface CalendarDayProps {
   date: Date;
-  events: Event[];
-  onSelectDate: (date: Date) => void;
+  currentDate: Date;
+  event?: Event;
+  onSelect: (date: Date) => void;
 }
 
 export const CalendarDay: React.FC<CalendarDayProps> = ({
   date,
-  events,
-  onSelectDate,
+  currentDate,
+  event,
+  onSelect,
 }) => {
-  const dayEvents = events.filter(
-    (event) => event.date === format(date, 'yyyy-MM-dd')
-  );
-
   const getStatusBand = (status: string) => {
     switch (status.toLowerCase()) {
       case 'confirmed':
@@ -43,41 +41,36 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
   return (
     <div 
       className="min-h-[120px] bg-[#234B61] p-2 rounded-lg relative cursor-pointer hover:bg-[#2D5D78] transition-colors"
-      onClick={() => onSelectDate(date)}
+      onClick={() => onSelect(date)}
     >
       <div className="text-white mb-2">
         {format(date, 'd')}
       </div>
       
-      {dayEvents.map((event, index) => {
-        const statusBand = getStatusBand(event.status);
-        
-        return (
-          <div 
-            key={index}
-            className="relative bg-[#1B3A4B] p-2 rounded mb-2 last:mb-0"
-          >
-            <div className="text-white">
-              {event.title && (
-                <div className="font-medium mb-1">
-                  {event.title}
-                </div>
-              )}
-            </div>
-            
-            {statusBand && (
-              <div className={cn(
-                "absolute bottom-0 left-0 right-0 h-[6px]",
-                statusBand.bg
-              )}>
-                <span className="absolute bottom-[-16px] left-0 right-0 text-center text-xs text-white/70">
-                  {statusBand.text}
-                </span>
+      {event && (
+        <div 
+          className="relative bg-[#1B3A4B] p-2 rounded mb-2 last:mb-0"
+        >
+          <div className="text-white">
+            {event.title && (
+              <div className="font-medium mb-1">
+                {event.title}
               </div>
             )}
           </div>
-        );
-      })}
+          
+          {event.status && (
+            <div className={cn(
+              "absolute bottom-0 left-0 right-0 h-[6px]",
+              getStatusBand(event.status)?.bg
+            )}>
+              <span className="absolute bottom-[-16px] left-0 right-0 text-center text-xs text-white/70">
+                {getStatusBand(event.status)?.text}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
