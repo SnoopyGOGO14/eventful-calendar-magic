@@ -1,3 +1,5 @@
+import { fetchSheetData, parseSheetRows } from './sheetsApi.ts'
+
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
   // First fetch the values
   const valuesResponse = await fetch(
@@ -90,7 +92,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const date = new Date(2025, month, day)
       if (isNaN(date.getTime())) {
         console.warn(`Skipping invalid date in row ${index + 1}:`, dateStr)
-        return null
+        return null;
       }
 
       return {
@@ -117,19 +119,21 @@ function determineStatusFromColor(color: any) {
   
   console.log('Cell color values:', { red, green, blue });
 
-  // Check if green is the primary color (allowing for slight variations)
-  if (green > 0.4 && green > red && green > blue) {
-    console.log('Primary green detected - Confirmed');
+  // More lenient check for green (confirmed)
+  // Green should be present and higher than both red and blue
+  if (green > 0.2 && green > red && green > blue) {
+    console.log('Green detected - Confirmed');
     return 'confirmed';
   }
   
-  // Check if red is the primary color
-  if (red > 0.4 && red > green && red > blue) {
-    console.log('Primary red detected - Cancelled');
+  // More lenient check for red (cancelled)
+  // Red should be present and higher than both green and blue
+  if (red > 0.2 && red > green && red > blue) {
+    console.log('Red detected - Cancelled');
     return 'cancelled';
   }
   
-  // If no clear primary color or yellow/orange detected
-  console.log('No primary color match - Pending');
+  // If neither condition is met, it's pending
+  console.log('Defaulting to pending');
   return 'pending';
 }
