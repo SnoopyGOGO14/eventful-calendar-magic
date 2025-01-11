@@ -15,7 +15,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Fetch formatting for column G specifically, including row data
+  // Specifically request background color formatting for column G
   const formattingResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
@@ -37,18 +37,19 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const line13Index = 12; // 0-based index for line 13
   const line13Data = values.values?.[line13Index] || [];
   const line13Date = line13Data[0]?.trim() || '';
-  const line13Color = formatting.sheets?.[0]?.data?.[0]?.rowData?.[line13Index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
+  const line13Format = formatting.sheets?.[0]?.data?.[0]?.rowData?.[line13Index]?.values?.[0]?.userEnteredFormat;
+  const line13BgColor = line13Format?.backgroundColor;
 
   console.log('Line 13 Analysis:');
   console.log(`Date in spreadsheet: "${line13Date}"`);
-  console.log('Cell being checked: Column G, Row 13');
+  console.log('Cell being checked: Column G, Row 13 (Background Color Only)');
   console.log(`Full row data:`, JSON.stringify(line13Data));
-  console.log(`Color data from Column G:`, JSON.stringify(line13Color, null, 2));
+  console.log(`Background Color data from Column G:`, JSON.stringify(line13BgColor, null, 2));
 
   if (line13Date.includes('Sat Jan 18')) {
     console.log('✅ Date match confirmed for Line 13: January 18th, 2025');
-    console.log('Color Analysis for Line 13 (Column G):');
-    const status = determineStatusFromColor(line13Color, 13);
+    console.log('Background Color Analysis for Line 13 (Column G):');
+    const status = determineStatusFromColor(line13BgColor, 13);
     console.log(`Final status determination: ${status}`);
   } else {
     console.log('⚠️ Line 13 does not contain January 18th, 2025');
@@ -70,33 +71,34 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
 function determineStatusFromColor(color: any, lineNumber: number) {
   if (!color) {
-    console.log(`Line ${lineNumber}: No color found in Column G, defaulting to pending`);
+    console.log(`Line ${lineNumber}: No background color found in Column G, defaulting to pending`);
     return 'pending';
   }
 
   const { red = 0, green = 0, blue = 0 } = color;
   
-  console.log(`Line ${lineNumber} Column G: Color values - R:${red} G:${green} B:${blue}`);
+  console.log(`Line ${lineNumber} Column G: Background Color values - R:${red} G:${green} B:${blue}`);
   
   // Enhanced color detection with specific thresholds
+  // Only looking at background colors, ignoring any text colors
   const isGreen = green > Math.max(red, blue) && green > 0.5;
   const isRed = red > Math.max(green, blue) && red > 0.5;
   const isYellow = red > 0.5 && green > 0.5 && blue < 0.3;
   
   if (isGreen) {
-    console.log(`Line ${lineNumber}: Green dominant in Column G (Confirmed)`);
+    console.log(`Line ${lineNumber}: Green background in Column G (Confirmed)`);
     return 'confirmed';
   }
   if (isRed) {
-    console.log(`Line ${lineNumber}: Red dominant in Column G (Cancelled)`);
+    console.log(`Line ${lineNumber}: Red background in Column G (Cancelled)`);
     return 'cancelled';
   }
   if (isYellow) {
-    console.log(`Line ${lineNumber}: Yellow detected in Column G (Pending)`);
+    console.log(`Line ${lineNumber}: Yellow background in Column G (Pending)`);
     return 'pending';
   }
   
-  console.log(`Line ${lineNumber}: No clear color dominance in Column G, defaulting to pending`);
+  console.log(`Line ${lineNumber}: No clear background color in Column G, defaulting to pending`);
   return 'pending';
 }
 
