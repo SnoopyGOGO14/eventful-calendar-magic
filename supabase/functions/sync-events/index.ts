@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting events sync...')
+    console.log('Starting events sync for 2025...')
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -23,99 +23,22 @@ serve(async (req) => {
       throw new Error('Spreadsheet ID is required')
     }
 
-    // Authentication setup
+    // Get access token using service account
     const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS')
     if (!credentialsStr) {
       throw new Error('Google Sheets credentials not found')
     }
 
     const credentials = JSON.parse(credentialsStr)
-    if (!credentials.client_email || !credentials.private_key) {
-      throw new Error('Invalid credentials format')
-    }
+    const accessToken = await getAccessToken(credentials)
 
-    // JWT Creation
-    const privateKey = credentials.private_key.replace(/\\n/g, '\n')
-    const now = Math.floor(Date.now() / 1000)
-    
-    const jwtHeader = btoa(JSON.stringify({
-      alg: 'RS256',
-      typ: 'JWT'
-    }))
-    
-    const jwtClaimSet = btoa(JSON.stringify({
-      iss: credentials.client_email,
-      scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
-      aud: 'https://oauth2.googleapis.com/token',
-      exp: now + 3600,
-      iat: now
-    }))
-
-    const signInput = `${jwtHeader}.${jwtClaimSet}`
-    const encoder = new TextEncoder()
-    const signBytes = encoder.encode(signInput)
-
-    // Sign JWT
-    const keyImportParams = {
-      name: 'RSASSA-PKCS1-v1_5',
-      hash: { name: 'SHA-256' },
-    }
-
-    const pemHeader = '-----BEGIN PRIVATE KEY-----'
-    const pemFooter = '-----END PRIVATE KEY-----'
-    const pemContents = privateKey
-      .replace(pemHeader, '')
-      .replace(pemFooter, '')
-      .replace(/\s/g, '')
-
-    const binaryKey = atob(pemContents)
-    const binaryKeyBytes = new Uint8Array(binaryKey.length)
-    for (let i = 0; i < binaryKey.length; i++) {
-      binaryKeyBytes[i] = binaryKey.charCodeAt(i)
-    }
-
-    const cryptoKey = await crypto.subtle.importKey(
-      'pkcs8',
-      binaryKeyBytes,
-      keyImportParams,
-      false,
-      ['sign']
-    )
-
-    const signature = await crypto.subtle.sign(
-      keyImportParams.name,
-      cryptoKey,
-      signBytes
-    )
-
-    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    const jwt = `${signInput}.${signatureBase64}`
-
-    // Get access token
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: jwt
-      })
-    })
-
-    if (!tokenResponse.ok) {
-      throw new Error('Failed to get access token: ' + await tokenResponse.text())
-    }
-
-    const { access_token } = await tokenResponse.json()
-
-    // Fetch data from Google Sheets
-    console.log('Fetching data from Google Sheets...')
+    // Fetch data from Google Sheets - specifically from 2025 tab
+    console.log('Fetching data from 2025 tab...')
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
       {
         headers: {
-          'Authorization': `Bearer ${access_token}`
+          'Authorization': `Bearer ${accessToken}`
         }
       }
     )
@@ -126,68 +49,42 @@ serve(async (req) => {
 
     const data = await response.json()
     const rows = data.values || []
-    console.log(`Found ${rows.length} rows in Google Sheets`)
+    console.log(`Found ${rows.length} rows in 2025 tab`)
 
-    const parseDate = (dateStr: string) => {
-      try {
-        // Expected format: "Friday January 10"
-        const parts = dateStr.trim().split(' ')
-        if (parts.length !== 3) {
-          console.log('Invalid date format:', dateStr)
+    const events = rows
+      .filter((row: string[]) => row[0] && row[1]) // Filter out empty rows
+      .map((row: string[], index: number) => {
+        const dateStr = row[0] // Column B
+        const title = row[1] || '' // Column C
+        const contractStatus = (row[7] || '').toLowerCase() // Column I
+
+        // Parse the date string (e.g., "Friday January 10")
+        const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
+        const month = new Date(`${monthName} 1, 2025`).getMonth()
+        const date = new Date(2025, month, parseInt(dayNum))
+
+        // Skip invalid dates or dates not in 2025
+        if (isNaN(date.getTime()) || date.getFullYear() !== 2025) {
+          console.warn(`Skipping invalid date in row ${index + 1}:`, dateStr)
           return null
         }
 
-        const day = parseInt(parts[2])
-        const month = parts[1]
-        const year = new Date().getFullYear()
-        
-        const dateString = `${month} ${day}, ${year}`
-        const date = new Date(dateString)
-        
-        if (isNaN(date.getTime())) {
-          console.log('Invalid date conversion:', dateString)
-          return null
+        return {
+          date: date.toISOString().split('T')[0], // YYYY-MM-DD format
+          title: title,
+          status: contractStatus === 'yes' ? 'confirmed' : 'pending',
+          is_recurring: false
         }
-        
-        return date.toISOString().split('T')[0] // Returns YYYY-MM-DD
-      } catch (error) {
-        console.error('Date parsing error:', error)
-        return null
-      }
-    }
+      })
+      .filter(event => event !== null) // Remove any null events
 
-    const events = rows.map((row: string[], index: number) => {
-      console.log(`Processing row ${index}:`, row)
-
-      const dateStr = row[0] // Column B
-      const parsedDate = parseDate(dateStr)
-      
-      if (!parsedDate) {
-        console.warn(`Invalid date format in row ${index}:`, dateStr)
-        return null
-      }
-
-      const title = row[1] || '' // Column C
-      const contractStatus = (row[7] || '').toLowerCase() // Column I
-
-      return {
-        date: parsedDate,
-        title: title,
-        status: contractStatus === 'yes' ? 'confirmed' : 'pending',
-        is_recurring: false
-      }
-    }).filter(event => event !== null)
-
-    if (events.length === 0) {
-      throw new Error('No valid events found in the spreadsheet')
-    }
-
-    // Clear existing events
-    console.log('Clearing existing events...')
+    // Clear existing 2025 events
+    console.log('Clearing existing 2025 events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000')
+      .gte('date', '2025-01-01')
+      .lt('date', '2026-01-01')
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
@@ -203,10 +100,10 @@ serve(async (req) => {
       throw new Error(`Error inserting new events: ${insertError.message}`)
     }
 
-    console.log('Sync completed successfully')
+    console.log('2025 events sync completed successfully')
     
     return new Response(
-      JSON.stringify({ success: true, message: 'Events synced successfully' }),
+      JSON.stringify({ success: true, message: '2025 events synced successfully' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -229,3 +126,78 @@ serve(async (req) => {
     )
   }
 })
+
+// Helper function to get access token
+async function getAccessToken(credentials: any) {
+  const now = Math.floor(Date.now() / 1000)
+  
+  const jwtHeader = btoa(JSON.stringify({
+    alg: 'RS256',
+    typ: 'JWT'
+  }))
+  
+  const jwtClaimSet = btoa(JSON.stringify({
+    iss: credentials.client_email,
+    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now
+  }))
+
+  const signInput = `${jwtHeader}.${jwtClaimSet}`
+  const encoder = new TextEncoder()
+  const signBytes = encoder.encode(signInput)
+
+  const keyImportParams = {
+    name: 'RSASSA-PKCS1-v1_5',
+    hash: { name: 'SHA-256' },
+  }
+
+  const pemHeader = '-----BEGIN PRIVATE KEY-----'
+  const pemFooter = '-----END PRIVATE KEY-----'
+  const pemContents = credentials.private_key
+    .replace(pemHeader, '')
+    .replace(pemFooter, '')
+    .replace(/\s/g, '')
+
+  const binaryKey = atob(pemContents)
+  const binaryKeyBytes = new Uint8Array(binaryKey.length)
+  for (let i = 0; i < binaryKey.length; i++) {
+    binaryKeyBytes[i] = binaryKey.charCodeAt(i)
+  }
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    binaryKeyBytes,
+    keyImportParams,
+    false,
+    ['sign']
+  )
+
+  const signature = await crypto.subtle.sign(
+    keyImportParams.name,
+    cryptoKey,
+    signBytes
+  )
+
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+  const jwt = `${signInput}.${signatureBase64}`
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt
+    })
+  })
+
+  if (!tokenResponse.ok) {
+    throw new Error('Failed to get access token: ' + await tokenResponse.text())
+  }
+
+  const { access_token } = await tokenResponse.json()
+  return access_token
+}
