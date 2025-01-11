@@ -56,19 +56,19 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
   const isWithinTolerance = (value: number, target: number) => Math.abs(value - target) <= TOLERANCE;
 
   // Yellow detection (high red & green, low blue)
-  if (isWithinTolerance(red, 0.9) && isWithinTolerance(green, 0.9) && blue < 0.3) {
+  if (isWithinTolerance(red, 1) && isWithinTolerance(green, 1) && blue < 0.3) {
     console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
     return 'pending';
   }
   
   // Green detection (dominantly green, low red and blue)
-  if (isWithinTolerance(green, 0.9) && red < 0.5 && blue < 0.5) {
+  if (isWithinTolerance(green, 1) && red < 0.3 && blue < 0.3) {
     console.log(`Row ${rowNumber} (${dateStr}): GREEN detected → Confirmed`);
     return 'confirmed';
   }
   
   // Red detection (dominantly red, low green and blue)
-  if (isWithinTolerance(red, 0.9) && green < 0.5 && blue < 0.5) {
+  if (isWithinTolerance(red, 1) && green < 0.3 && blue < 0.3) {
     console.log(`Row ${rowNumber} (${dateStr}): RED detected → Cancelled`);
     return 'cancelled';
   }
