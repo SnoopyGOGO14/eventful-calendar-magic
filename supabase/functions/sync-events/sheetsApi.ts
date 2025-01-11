@@ -38,19 +38,35 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   // Add detailed logging for the raw formatting data
   console.log('Raw formatting response:', JSON.stringify(formatting, null, 2));
 
+  // Log each unique color found
+  const uniqueColors = new Set();
+  formatting.sheets?.[0]?.data?.[0]?.rowData?.forEach((row: any, index: number) => {
+    const bgColor = row?.values?.[0]?.userEnteredFormat?.backgroundColor;
+    if (bgColor) {
+      const hexColor = rgbToHex(bgColor);
+      uniqueColors.add(hexColor);
+      console.log(`Row ${index + 1}: Color found: ${hexColor}`);
+    }
+  });
+
+  console.log('Unique colors found:', Array.from(uniqueColors));
+
   return {
     values: values.values || [],
     formatting: formatting.sheets?.[0]?.data?.[0]?.rowData || [],
   };
 }
 
-function isInRange(value: number, range: { min: number, max: number }): boolean {
-  // Increase tolerance for better color matching
-  const tolerance = 0.05;
-  return value >= (range.min - tolerance) && value <= (range.max + tolerance);
+function rgbToHex(color: { red: number; green: number; blue: number }): string {
+  if (!color) return '#ffffff'; // default white
+  
+  const toHex = (n: number) => {
+    const hex = Math.round((n || 0) * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  
+  return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
 }
-
-// Adjusted color ranges based on actual Google Sheets values
 
 // Update our color detection to use hex values instead of RGB ranges
 const TARGET_COLORS = {
@@ -59,15 +75,6 @@ const TARGET_COLORS = {
   yellow: '#ffd966', // Google Sheets' default yellow
   red: '#e06666',    // Google Sheets' default light red
 };
-
-function rgbToHex(color: { red: number; green: number; blue: number }): string {
-  const toHex = (n: number) => {
-    const hex = Math.round(n * 255).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-  
-  return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
-}
 
 function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string): string {
   if (!bgColor) {
