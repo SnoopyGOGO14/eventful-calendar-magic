@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, startOfWeek, addDays } from 'date-fns';
 import { Event } from './Calendar';
 import { CalendarDay } from './CalendarDay';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -12,8 +12,7 @@ interface CalendarGridProps {
 
 export const CalendarGrid = ({ days, currentDate, events, onSelectDate }: CalendarGridProps) => {
   const isMobile = useIsMobile();
-  const dayNames = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-  const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
   const getEventForDate = (date: Date): Event | undefined => {
     return events?.find(event => 
@@ -21,9 +20,17 @@ export const CalendarGrid = ({ days, currentDate, events, onSelectDate }: Calend
     );
   };
 
+  // Get the first day of the grid (Monday of the first week)
+  const firstDayOfGrid = startOfWeek(days[0], { weekStartsOn: 1 });
+  
+  // Generate all days for the grid (6 weeks × 7 days)
+  const allGridDays = Array.from({ length: 42 }, (_, i) => 
+    addDays(firstDayOfGrid, i)
+  );
+
   return (
     <div className="grid grid-cols-7 gap-1 mt-4">
-      {(isMobile ? dayNamesShort : dayNames).map((day) => (
+      {dayNames.map((day) => (
         <div 
           key={day} 
           className="p-2 text-white font-bold text-center border-b border-white/20"
@@ -32,7 +39,7 @@ export const CalendarGrid = ({ days, currentDate, events, onSelectDate }: Calend
         </div>
       ))}
 
-      {days.map((day) => (
+      {allGridDays.map((day) => (
         <CalendarDay
           key={day.toString()}
           day={day}
