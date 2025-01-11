@@ -47,6 +47,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     if (hasDate) {
       console.log(`   Date: "${dateValue}"`);
       console.log(`   Other columns: ${otherColumns}`);
+      console.log(`   Sheet Line Number: ${lineNumber}`);
     }
     console.log('   ---');
   });
@@ -58,7 +59,8 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   
   return {
     values: values.values || [],
-    formatting: rowFormatting
+    formatting: rowFormatting,
+    lineNumbers: values.values ? values.values.map((_: any, index: number) => index + 1) : []
   };
 }
 
@@ -111,6 +113,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const date = new Date(2025, month, day)
       if (isNaN(date.getTime())) return null;
 
+      // Include the original sheet line number in the event object
       return {
         date: date.toISOString().split('T')[0],
         title: title,
@@ -118,7 +121,8 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         promoter: promoter,
         capacity: capacity,
         status: status,
-        is_recurring: false
+        is_recurring: false,
+        _sheetLineNumber: index + 1 // Hidden line number reference
       }
     })
     .filter(event => event !== null)
