@@ -94,12 +94,12 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
       const status = determineStatusFromColor(bgColor, index + 1, dateStr);
 
-      // Handle special date formats and ensure all dates are in 2025
+      // Handle special date formats and year transition
       let date: Date;
       if (dateStr.toLowerCase().includes('nye')) {
         date = new Date(2025, 11, 31); // December 31st, 2025
       } else if (dateStr.toLowerCase().includes('nyd')) {
-        date = new Date(2025, 0, 1); // January 1st, 2025
+        date = new Date(2026, 0, 1); // January 1st, 2026
       } else {
         // Parse regular date format (e.g., "Friday January 3")
         const [dayName, monthName, dayNum] = dateStr.split(' ');
@@ -111,7 +111,10 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
           return null;
         }
 
-        date = new Date(2025, month, day);
+        // If we're in December and the month is January/February, use 2026
+        const shouldUse2026 = month <= 1 && values[0][0]?.toLowerCase().includes('december');
+        const year = shouldUse2026 ? 2026 : 2025;
+        date = new Date(year, month, day);
       }
       
       // Validate date
