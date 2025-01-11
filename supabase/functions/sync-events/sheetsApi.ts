@@ -1,6 +1,6 @@
-import { fetchSheetData, parseSheetRows } from './sheetsApi.ts'
-
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
+  console.log('Starting to fetch sheet data...');
+  
   // First fetch the values (including dates from Column B)
   const valuesResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
@@ -12,12 +12,14 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   );
 
   if (!valuesResponse.ok) {
-    throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
+    const errorText = await valuesResponse.text();
+    console.error(`Google Sheets API error fetching values: ${errorText}`);
+    throw new Error(`Google Sheets API error: ${errorText}`);
   }
 
-  // Fetch background color formatting for Column G
+  // Fetch background color formatting for Column G with detailed metadata
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor,sheets.properties`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -26,11 +28,16 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   );
 
   if (!formattingResponse.ok) {
-    throw new Error(`Google Sheets API formatting error: ${await formattingResponse.text()}`);
+    const errorText = await formattingResponse.text();
+    console.error(`Google Sheets API formatting error: ${errorText}`);
+    throw new Error(`Google Sheets API formatting error: ${errorText}`);
   }
 
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
+
+  // Log the raw formatting data for debugging
+  console.log('Raw formatting data for debugging:', JSON.stringify(formatting, null, 2));
 
   return {
     values: values.values || [],
@@ -38,18 +45,17 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-// Define more precise color ranges for better detection
-
+// Define more precise color ranges based on the actual values we're seeing
 const TARGET_COLORS = {
   green: { 
-    red: { min: 0.2, max: 0.21 }, 
-    green: { min: 0.65, max: 0.66 }, 
-    blue: { min: 0.32, max: 0.33 } 
+    red: { min: 0.203, max: 0.205 }, 
+    green: { min: 0.658, max: 0.660 }, 
+    blue: { min: 0.324, max: 0.326 } 
   },
   yellow: { 
-    red: { min: 0.98, max: 0.99 }, 
-    green: { min: 0.73, max: 0.74 }, 
-    blue: { min: 0.01, max: 0.02 } 
+    red: { min: 0.983, max: 0.985 }, 
+    green: { min: 0.736, max: 0.738 }, 
+    blue: { min: 0.015, max: 0.017 } 
   },
   red: { 
     red: { min: 0.95, max: 1 }, 
@@ -87,11 +93,11 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     bgColor = hexToRgb(bgColor);
   }
 
-  // Log exact color values for debugging
-  console.log(`Row ${rowNumber} (${dateStr}) - Color values:`, {
-    red: bgColor.red?.toFixed(3),
-    green: bgColor.green?.toFixed(3),
-    blue: bgColor.blue?.toFixed(3)
+  // Log exact color values with more precision for debugging
+  console.log(`Row ${rowNumber} (${dateStr}) - Exact color values:`, {
+    red: Number(bgColor.red).toFixed(6),
+    green: Number(bgColor.green).toFixed(6),
+    blue: Number(bgColor.blue).toFixed(6)
   });
 
   // Check for green first (confirmed)
@@ -102,6 +108,14 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'confirmed';
   }
 
+  // Check for yellow (pending)
+  if (isInRange(bgColor.red, TARGET_COLORS.yellow.red) &&
+      isInRange(bgColor.green, TARGET_COLORS.yellow.green) &&
+      isInRange(bgColor.blue, TARGET_COLORS.yellow.blue)) {
+    console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
+    return 'pending';
+  }
+
   // Check for red (cancelled)
   if (isInRange(bgColor.red, TARGET_COLORS.red.red) &&
       isInRange(bgColor.green, TARGET_COLORS.red.green) &&
@@ -110,16 +124,13 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'cancelled';
   }
 
-  // Check for yellow (pending) - including lighter shades
-  if ((isInRange(bgColor.red, TARGET_COLORS.yellow.red) &&
-       isInRange(bgColor.green, TARGET_COLORS.yellow.green) &&
-       isInRange(bgColor.blue, TARGET_COLORS.yellow.blue)) ||
-      (bgColor.red > 0.9 && bgColor.green > 0.9 && bgColor.blue < 0.3)) {
-    console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
+  // Check for white (1,1,1) explicitly
+  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
+    console.log(`Row ${rowNumber} (${dateStr}): WHITE detected → Pending`);
     return 'pending';
   }
 
-  console.log(`Row ${rowNumber} (${dateStr}): No color match found, defaulting to pending`);
+  console.log(`Row ${rowNumber} (${dateStr}): No color match found for RGB(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}), defaulting to pending`);
   return 'pending';
 }
 
