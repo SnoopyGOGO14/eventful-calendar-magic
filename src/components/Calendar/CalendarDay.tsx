@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface CalendarDayProps {
   date: Date;
   currentDate: Date;
-  event?: Event;
+  events?: Event[];
   isLoading?: boolean;
   onSelect: (date: Date) => void;
 }
@@ -15,7 +15,7 @@ interface CalendarDayProps {
 export const CalendarDay: React.FC<CalendarDayProps> = ({
   date,
   currentDate,
-  event,
+  events = [],
   isLoading = false,
   onSelect,
 }) => {
@@ -43,7 +43,7 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
 
   return (
     <div 
-      className="min-h-[120px] bg-[#234B61] p-2 rounded-lg relative cursor-pointer hover:bg-[#2D5D78] transition-colors"
+      className="min-h-[120px] bg-[#234B61] p-2 rounded-lg relative cursor-pointer hover:bg-[#2D5D78] transition-colors overflow-y-auto"
       onClick={() => onSelect(date)}
     >
       <div className="text-white mb-2">
@@ -52,11 +52,14 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
       
       {isLoading ? (
         <Skeleton className="h-20 w-full bg-[#1B3A4B]/50" />
-      ) : event && (
-        <div className="relative bg-[#1B3A4B] p-2 rounded mb-2 last:mb-0">
+      ) : events.map((event, index) => (
+        <div 
+          key={`${event.date}-${index}`} 
+          className="relative bg-[#1B3A4B] p-2 rounded mb-2 last:mb-0"
+        >
           <div className="text-white">
             {event.title && (
-              <div className="font-medium mb-1">
+              <div className="font-medium mb-1 text-sm">
                 {event.title}
               </div>
             )}
@@ -73,7 +76,7 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
             </div>
           )}
         </div>
-      )}
+      ))}
     </div>
   );
 };

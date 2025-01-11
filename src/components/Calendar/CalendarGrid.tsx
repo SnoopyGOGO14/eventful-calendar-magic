@@ -21,9 +21,9 @@ export const CalendarGrid = ({
   const isMobile = useIsMobile();
   const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-  const getEventForDate = (date: Date): Event | undefined => {
-    if (!events) return undefined;
-    return events.find(event => 
+  const getEventsForDate = (date: Date): Event[] => {
+    if (!events) return [];
+    return events.filter(event => 
       format(new Date(event.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
     );
   };
@@ -52,7 +52,7 @@ export const CalendarGrid = ({
           key={date.toString()}
           date={date}
           currentDate={currentDate}
-          event={getEventForDate(date)}
+          events={getEventsForDate(date)}
           onSelect={onSelectDate}
           isLoading={isLoading}
         />
