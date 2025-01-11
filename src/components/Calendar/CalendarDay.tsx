@@ -51,7 +51,7 @@ export const CalendarDay = ({ day, currentDate, event, onSelect }: CalendarDayPr
       
       {event && (
         <div className="flex flex-col h-full">
-          <div className="mt-1 text-white">
+          <div className="text-white">
             {event.isRecurring ? (
               <AnimatedBrandName name={event.title} />
             ) : (
@@ -63,10 +63,10 @@ export const CalendarDay = ({ day, currentDate, event, onSelect }: CalendarDayPr
           
           {statusBand && (
             <div className={cn(
-              "absolute bottom-0 left-0 right-0 py-0.5 text-center", // Reduced padding from py-1 to py-0.5
+              "absolute bottom-0 left-0 right-0 py-[2px] text-center", // Further reduced padding from py-0.5 to py-[2px]
               statusBand.bg
             )}>
-              <span className="text-white text-xs font-medium"> {/* Reduced text size from text-sm to text-xs */}
+              <span className="text-white text-[10px] font-medium"> {/* Reduced text size from text-xs to text-[10px] */}
                 {statusBand.text}
               </span>
             </div>
