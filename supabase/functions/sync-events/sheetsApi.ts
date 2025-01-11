@@ -15,9 +15,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Fetch background color formatting for Column G with more detailed fields
+  // Fetch cell formatting with specific focus on background colors
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor,sheets.data.rowData.values.effectiveFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.effectiveFormat.backgroundColor,sheets.data.rowData.values.userEnteredFormat.backgroundColor,sheets.data.rowData.values.effectiveFormat.backgroundColorStyle`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -38,13 +38,30 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-function isColorClose(color1: any, targetColor: { r: number, g: number, b: number }, tolerance: number = 0.1): boolean {
-  if (!color1) return false;
-  const { red = 0, green = 0, blue = 0 } = color1;
+function getThemeColor(colorStyle: any): string {
+  if (!colorStyle?.themeColor) return '';
   
-  return Math.abs(red - targetColor.r) <= tolerance &&
-         Math.abs(green - targetColor.g) <= tolerance &&
-         Math.abs(blue - targetColor.b) <= tolerance;
+  // Map theme colors to status
+  const themeColorMap: Record<string, string> = {
+    'ACCENT1': 'confirmed',  // Green
+    'ACCENT2': 'pending',    // Yellow
+    'ACCENT3': 'cancelled'   // Red
+  };
+  
+  return themeColorMap[colorStyle.themeColor] || '';
+}
+
+function getRgbColor(color: any): string {
+  if (!color) return '';
+  
+  const { red = 0, green = 0, blue = 0 } = color;
+  
+  // Check for specific Google Sheets default color combinations
+  if (green > 0.6 && red < 0.4 && blue < 0.4) return 'confirmed';  // Green
+  if (red > 0.9 && green > 0.8 && blue < 0.4) return 'pending';    // Yellow
+  if (red > 0.8 && green < 0.3 && blue < 0.3) return 'cancelled';  // Red
+  
+  return '';
 }
 
 function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string) {
@@ -53,58 +70,27 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'pending';
   }
 
-  // Get both userEntered and effective format
-  const userColor = bgColor?.userEnteredFormat?.backgroundColor;
-  const effectiveColor = bgColor?.effectiveFormat?.backgroundColor;
-  const finalColor = userColor || effectiveColor;
+  // Try to get the color from different possible formats
+  const effectiveFormat = bgColor?.effectiveFormat;
+  const userFormat = bgColor?.userEnteredFormat;
 
-  if (!finalColor) {
-    console.log(`Row ${rowNumber} (${dateStr}): No color data found, defaulting to pending`);
-    return 'pending';
+  console.log(`Row ${rowNumber} (${dateStr}) - Analyzing color formats:`, {
+    effectiveFormat,
+    userFormat
+  });
+
+  // First try theme colors (most reliable)
+  const themeStatus = getThemeColor(effectiveFormat?.backgroundColorStyle || userFormat?.backgroundColorStyle);
+  if (themeStatus) {
+    console.log(`Row ${rowNumber} (${dateStr}): Theme color detected → ${themeStatus}`);
+    return themeStatus;
   }
 
-  const { red = 0, green = 0, blue = 0 } = finalColor;
-  
-  console.log(`Row ${rowNumber} (${dateStr}) RGB values: R:${red.toFixed(3)} G:${green.toFixed(3)} B:${blue.toFixed(3)}`);
-
-  // Define standard Google Sheets colors
-  const standardYellow = { r: 1, g: 0.85, b: 0.4 };  // Google Sheets yellow
-  const standardGreen = { r: 0.27, g: 0.7, b: 0.27 }; // Google Sheets green
-  const standardRed = { r: 0.8, g: 0.25, b: 0.25 };   // Google Sheets red
-
-  // Check against standard colors with tolerance
-  if (isColorClose(finalColor, standardYellow)) {
-    console.log(`Row ${rowNumber} (${dateStr}): Matched YELLOW → Pending`);
-    return 'pending';
-  }
-  
-  if (isColorClose(finalColor, standardGreen)) {
-    console.log(`Row ${rowNumber} (${dateStr}): Matched GREEN → Confirmed`);
-    return 'confirmed';
-  }
-  
-  if (isColorClose(finalColor, standardRed)) {
-    console.log(`Row ${rowNumber} (${dateStr}): Matched RED → Cancelled`);
-    return 'cancelled';
-  }
-
-  // Alternative method using relative color intensities
-  const maxComponent = Math.max(red, green, blue);
-  const colorIntensity = red + green + blue;
-
-  if (colorIntensity > 1.5 && red > 0.7 && green > 0.7 && blue < 0.5) {
-    console.log(`Row ${rowNumber} (${dateStr}): Intensity method detected YELLOW → Pending`);
-    return 'pending';
-  }
-
-  if (green === maxComponent && green > 0.6 && red < 0.6) {
-    console.log(`Row ${rowNumber} (${dateStr}): Intensity method detected GREEN → Confirmed`);
-    return 'confirmed';
-  }
-
-  if (red === maxComponent && red > 0.6 && green < 0.6) {
-    console.log(`Row ${rowNumber} (${dateStr}): Intensity method detected RED → Cancelled`);
-    return 'cancelled';
+  // Then try RGB values
+  const rgbStatus = getRgbColor(effectiveFormat?.backgroundColor || userFormat?.backgroundColor);
+  if (rgbStatus) {
+    console.log(`Row ${rowNumber} (${dateStr}): RGB color detected → ${rgbStatus}`);
+    return rgbStatus;
   }
 
   console.log(`Row ${rowNumber} (${dateStr}): No specific color match, defaulting to pending`);
