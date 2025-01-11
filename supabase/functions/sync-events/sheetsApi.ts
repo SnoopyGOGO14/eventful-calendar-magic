@@ -1,7 +1,6 @@
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
   console.log('Starting to fetch sheet data...');
   
-  // First fetch the values (including dates from Column B)
   const valuesResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
     {
@@ -17,9 +16,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${errorText}`);
   }
 
-  // Fetch background color formatting for Column G with detailed metadata
+  // Fetch background color formatting with more detailed metadata
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor,sheets.properties`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -35,9 +34,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
-
-  // Log the raw formatting data for debugging
-  console.log('Raw formatting data for debugging:', JSON.stringify(formatting, null, 2));
+  
+  // Add detailed logging for the raw formatting data
+  console.log('Raw formatting response:', JSON.stringify(formatting, null, 2));
 
   return {
     values: values.values || [],
@@ -45,7 +44,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-// Define more precise color ranges based on the actual values we're seeing
+// Define more precise color ranges
 const TARGET_COLORS = {
   green: { 
     red: { min: 0.203, max: 0.205 }, 
@@ -64,43 +63,31 @@ const TARGET_COLORS = {
   }
 };
 
-function hexToRgb(hex: string) {
-  hex = hex.replace(/^#/, '');
-  const bigint = parseInt(hex, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  
-  return {
-    red: r / 255,
-    green: g / 255,
-    blue: b / 255
-  };
-}
-
-function isInRange(value: number, range: { min: number, max: number }): boolean {
-  return value >= range.min && value <= range.max;
-}
-
 function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string): string {
   if (!bgColor) {
     console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
     return 'pending';
   }
 
-  // Convert hex format to RGB if needed
-  if (typeof bgColor === 'string' && bgColor.startsWith('#')) {
-    bgColor = hexToRgb(bgColor);
+  // Add specific debug logging for April 18th
+  if (dateStr.includes('April 18')) {
+    console.log('DEBUGGING APRIL 18:', {
+      rawColor: bgColor,
+      red: Number(bgColor.red).toFixed(6),
+      green: Number(bgColor.green).toFixed(6),
+      blue: Number(bgColor.blue).toFixed(6),
+      targetGreen: TARGET_COLORS.green
+    });
   }
 
-  // Log exact color values with more precision for debugging
+  // Log exact color values with more precision
   console.log(`Row ${rowNumber} (${dateStr}) - Exact color values:`, {
     red: Number(bgColor.red).toFixed(6),
     green: Number(bgColor.green).toFixed(6),
     blue: Number(bgColor.blue).toFixed(6)
   });
 
-  // Check for green first (confirmed)
+  // Check for green (confirmed)
   if (isInRange(bgColor.red, TARGET_COLORS.green.red) &&
       isInRange(bgColor.green, TARGET_COLORS.green.green) &&
       isInRange(bgColor.blue, TARGET_COLORS.green.blue)) {
@@ -124,13 +111,7 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'cancelled';
   }
 
-  // Check for white (1,1,1) explicitly
-  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`Row ${rowNumber} (${dateStr}): WHITE detected → Pending`);
-    return 'pending';
-  }
-
-  console.log(`Row ${rowNumber} (${dateStr}): No color match found for RGB(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}), defaulting to pending`);
+  console.log(`Row ${rowNumber} (${dateStr}): No color match found, defaulting to pending`);
   return 'pending';
 }
 
