@@ -63,10 +63,10 @@ export const CalendarDay = ({ day, currentDate, event, onSelect }: CalendarDayPr
           
           {statusBand && (
             <div className={cn(
-              "absolute bottom-0 left-0 right-0 h-[3px]", // Changed to fixed height of 3px
+              "absolute bottom-0 left-0 right-0 h-[6px]", // Changed to 6px height
               statusBand.bg
             )}>
-              <span className="absolute bottom-[-16px] left-0 right-0 text-center text-xs text-white/70"> {/* Moved text below the band */}
+              <span className="absolute bottom-[-16px] left-0 right-0 text-center text-xs text-white/70">
                 {statusBand.text}
               </span>
             </div>
