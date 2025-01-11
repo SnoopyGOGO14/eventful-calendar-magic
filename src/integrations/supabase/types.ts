@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       events: {
         Row: {
+          _sheet_line_number: number | null
           capacity: string | null
           created_at: string | null
           date: string
@@ -23,6 +24,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          _sheet_line_number?: number | null
           capacity?: string | null
           created_at?: string | null
           date: string
@@ -35,6 +37,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          _sheet_line_number?: number | null
           capacity?: string | null
           created_at?: string | null
           date?: string

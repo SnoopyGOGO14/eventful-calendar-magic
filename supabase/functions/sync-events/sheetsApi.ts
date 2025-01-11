@@ -113,7 +113,6 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const date = new Date(2025, month, day)
       if (isNaN(date.getTime())) return null;
 
-      // Include the original sheet line number in the event object
       return {
         date: date.toISOString().split('T')[0],
         title: title,
@@ -122,7 +121,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         capacity: capacity,
         status: status,
         is_recurring: false,
-        _sheetLineNumber: index + 1 // Hidden line number reference
+        _sheet_line_number: index + 1 // Store the line number
       }
     })
     .filter(event => event !== null)
