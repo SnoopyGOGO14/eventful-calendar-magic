@@ -39,21 +39,22 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 // Define more precise color ranges for better detection
+
 const TARGET_COLORS = {
-  yellow: { 
-    red: { min: 0.95, max: 1 }, 
-    green: { min: 0.85, max: 1 }, 
-    blue: { min: 0, max: 0.2 } 
-  },
   green: { 
-    red: { min: 0, max: 0.2 }, 
-    green: { min: 0.8, max: 1 }, 
-    blue: { min: 0, max: 0.2 } 
+    red: { min: 0.2, max: 0.21 }, 
+    green: { min: 0.65, max: 0.66 }, 
+    blue: { min: 0.32, max: 0.33 } 
+  },
+  yellow: { 
+    red: { min: 0.98, max: 0.99 }, 
+    green: { min: 0.73, max: 0.74 }, 
+    blue: { min: 0.01, max: 0.02 } 
   },
   red: { 
-    red: { min: 0.8, max: 1 }, 
-    green: { min: 0, max: 0.2 }, 
-    blue: { min: 0, max: 0.2 } 
+    red: { min: 0.95, max: 1 }, 
+    green: { min: 0, max: 0.1 }, 
+    blue: { min: 0, max: 0.1 } 
   }
 };
 
