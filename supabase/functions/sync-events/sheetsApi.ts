@@ -72,6 +72,9 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
 }
 
 export function parseSheetRows(values: string[][], formatting: any[]) {
+  let currentYear = 2024; // Start with December 2024
+  let lastMonth = 11; // December is month 11 (0-based)
+
   return values
     .filter((row: string[], index: number) => {
       const hasDate = row[0];
@@ -95,9 +98,6 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const status = determineStatusFromColor(bgColor, index + 1, dateStr);
 
       // Parse the date string
-      let date: Date;
-      
-      // Parse regular date format (e.g., "Friday January 3")
       const parts = dateStr.split(' ');
       if (parts.length < 3) {
         console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
@@ -107,7 +107,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const monthName = parts[1];
       const dayNum = parseInt(parts[2]);
       
-      // All dates should be in 2025
+      // Get month number (0-based)
       const month = new Date(`${monthName} 1, 2025`).getMonth();
       
       if (isNaN(month) || isNaN(dayNum)) {
@@ -115,7 +115,14 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
         return null;
       }
 
-      date = new Date(2025, month, dayNum);
+      // If we see a month that's earlier than the last month we processed,
+      // we've crossed into a new year
+      if (month < lastMonth) {
+        currentYear++;
+      }
+      lastMonth = month;
+
+      const date = new Date(currentYear, month, dayNum);
       console.log(`Row ${index + 1}: Event parsed for ${date.toISOString()}`);
 
       // Validate date
