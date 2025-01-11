@@ -113,28 +113,32 @@ function determineStatusFromColor(color: any) {
   }
 
   const { red = 0, green = 0, blue = 0 } = color;
-  console.log('Color values:', { red, green, blue });
-
-  // Improved color detection thresholds based on the spreadsheet image
   
-  // Green (confirmed) - Matches the bright green in the spreadsheet
-  if (green > 0.8 && red < 0.3 && blue < 0.3) {
-    console.log('Detected bright green - Confirmed');
+  // Log the exact RGB values we're receiving
+  console.log('Raw color values:', { 
+    red: red.toFixed(4), 
+    green: green.toFixed(4), 
+    blue: blue.toFixed(4) 
+  });
+
+  // Green (confirmed) - Matches the custom green fill
+  if (green > 0.6 && red < 0.4 && blue < 0.4) {
+    console.log('Detected green fill - Confirmed');
     return 'confirmed';
   }
   
-  // Red (cancelled) - Matches the bright red in the spreadsheet
+  // Red (cancelled) - Matches the custom red fill
   if (red > 0.8 && green < 0.2 && blue < 0.2) {
-    console.log('Detected bright red - Cancelled');
+    console.log('Detected red fill - Cancelled');
     return 'cancelled';
   }
   
-  // Yellow/Orange (pending) - Matches the yellow in the spreadsheet
-  if (red > 0.8 && green > 0.8 && blue < 0.3) {
-    console.log('Detected yellow - Pending');
+  // Orange/Yellow (pending) - Matches the custom orange/yellow fill
+  if (red > 0.8 && green > 0.6 && blue < 0.2) {
+    console.log('Detected orange/yellow fill - Pending');
     return 'pending';
   }
 
-  console.log('No specific color match, defaulting to pending');
+  console.log('Color did not match any status, defaulting to pending');
   return 'pending';
 }
