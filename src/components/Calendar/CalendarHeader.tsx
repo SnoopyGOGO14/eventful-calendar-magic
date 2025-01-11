@@ -13,7 +13,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onDateChange,
 }) => {
   return (
-    <div className="flex items-center justify-center relative mb-4 min-h-[48px]">
+    <div className="flex items-center justify-between relative mb-4 min-h-[48px] px-20">
       <Button
         variant="outline"
         onClick={() => onDateChange(subMonths(currentDate, 1))}
@@ -22,14 +22,14 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         <ChevronLeft className="h-4 w-4" />
       </Button>
       
-      <h1 className="text-4xl font-bold text-white px-20">
+      <h1 className="text-4xl font-bold text-white">
         {format(currentDate, 'MMMM yyyy')}
       </h1>
       
       <Button
         variant="outline"
         onClick={() => onDateChange(addMonths(currentDate, 1))}
-        className="absolute right-0"
+        className="absolute right-20"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
