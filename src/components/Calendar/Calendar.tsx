@@ -26,14 +26,28 @@ export const Calendar = () => {
   const queryClient = useQueryClient();
   const { events = [], isLoading } = useCalendarData();
 
+  const getCurrentDisplayMonth = () => {
+    const now = new Date();
+    // If we're in December 2024, show December 2024
+    if (now.getFullYear() === 2024 && now.getMonth() === 11) {
+      return new Date(2024, 11, 1);
+    }
+    // For any date in 2025, show that month in 2025
+    if (now.getFullYear() === 2025) {
+      return new Date(2025, now.getMonth(), 1);
+    }
+    // Default to January 2025 if we're outside the expected range
+    return new Date(2025, 0, 1);
+  };
+
   const handleSync = async () => {
     setIsSyncing(true);
     try {
       await syncEvents('18KbXdfe2EfjtP3YahNRs1uJauMoK0yZsJCwzeCBu1kc');
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Calendar synced successfully!');
-      // Reset to January 2025 after successful sync
-      setCurrentDate(new Date(2025, 0, 1));
+      // Reset to current month
+      setCurrentDate(getCurrentDisplayMonth());
       // Refresh the window to get fresh data
       window.location.reload();
     } catch (error) {
