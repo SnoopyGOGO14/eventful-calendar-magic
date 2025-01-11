@@ -13,7 +13,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Then fetch the formatting
+  // Then fetch the formatting for column I only
   const formattingResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!I:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
@@ -47,14 +47,13 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const capacity = row[4] || '' // Column F
       const contractStatus = (row[7] || '').toLowerCase() // Column I
 
-      // Get background color from formatting - only looking at Column I
+      // Get background color from formatting using the direct line number
       const rowFormatting = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-      console.log(`Row ${index} formatting for ${dateStr}:`, {
-        red: rowFormatting?.red,
-        green: rowFormatting?.green,
-        blue: rowFormatting?.blue,
-        raw: rowFormatting,
-        contractStatus: contractStatus
+      console.log(`Row ${index + 1} formatting:`, {
+        dateStr,
+        rowFormatting,
+        contractStatus,
+        formattingLength: formatting.length
       });
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
@@ -86,7 +85,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       }
 
       const status = determineStatus(rowFormatting, contractStatus);
-      console.log(`Date: ${dateStr}, Status determined: ${status}`);
+      console.log(`Date: ${dateStr}, Status determined: ${status}, Color values:`, rowFormatting);
 
       return {
         date: date.toISOString().split('T')[0],
@@ -115,11 +114,9 @@ function determineStatus(formatting: any, contractStatus: string) {
   });
 
   // More permissive green detection
-  if (
-    (formatting.green > 0.7) || // Any predominantly green color
-    (formatting.green > formatting.red && formatting.green > formatting.blue) || // More green than other colors
-    (formatting.green > 0.85 && formatting.red > 0.85) || // Pale green
-    (formatting.green === 0.7176471 && formatting.red === 0.6509804) // Specific Google Sheets green
+  if (formatting.green > 0.7 || // Any predominantly green color
+      (formatting.green > formatting.red && formatting.green > formatting.blue) || // More green than other colors
+      (formatting.green > 0.85 && formatting.red > 0.85) // Pale green
   ) {
     console.log('Found green background, setting status to confirmed');
     return 'confirmed';
@@ -137,6 +134,7 @@ function determineStatus(formatting: any, contractStatus: string) {
     return 'cancelled';
   }
 
+  // If no specific color is detected, use contract status
   console.log('No specific color match found, using contract status:', contractStatus);
   return contractStatus === 'yes' ? 'confirmed' : 'pending';
 }
