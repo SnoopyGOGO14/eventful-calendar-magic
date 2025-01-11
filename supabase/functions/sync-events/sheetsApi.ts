@@ -13,9 +13,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Fetch the full formatting data for the sheet
+  // Fetch formatting specifically for column G
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/ranges/'STUDIO 338 - 2025'!G:G?fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -30,14 +30,14 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
-  // Get the specific sheet data
-  const sheetData = formatting.sheets?.[0]?.data?.[0];
+  // Extract the row data which contains the formatting information for column G
+  const rowFormatting = formatting.sheets?.[0]?.data?.[0]?.rowData || [];
   
-  console.log('Sheet data structure:', JSON.stringify(sheetData, null, 2));
+  console.log('Column G formatting data:', JSON.stringify(rowFormatting, null, 2));
 
   return {
     values: values.values || [],
-    formatting: sheetData
+    formatting: rowFormatting
   };
 }
 
@@ -50,16 +50,11 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const room = row[2] || '' // Column D
       const promoter = row[3] || '' // Column E
       const capacity = row[4] || '' // Column F
-      const contractStatus = (row[7] || '').toLowerCase() // Column I
+      const statusColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
 
-      // Get the cell formatting for column I (index 8)
-      const rowData = formatting.rowData?.[index + 1];
-      const cellFormatting = rowData?.values?.[8]?.userEnteredFormat?.backgroundColor;
-      
       console.log(`Processing row ${index + 1} for ${dateStr}:`, {
-        contractStatus,
-        cellFormatting,
-        rowData: JSON.stringify(rowData?.values?.[8], null, 2)
+        statusColor,
+        rowFormatting: JSON.stringify(formatting[index]?.values?.[0], null, 2)
       });
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
@@ -79,7 +74,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
           room: room,
           promoter: promoter,
           capacity: capacity,
-          status: determineStatus(cellFormatting, contractStatus),
+          status: determineStatus(statusColor),
           is_recurring: false
         }
       }
@@ -90,8 +85,8 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return null
       }
 
-      const status = determineStatus(cellFormatting, contractStatus);
-      console.log(`Date: ${dateStr}, Final status determined: ${status}, Color values:`, cellFormatting);
+      const status = determineStatus(statusColor);
+      console.log(`Date: ${dateStr}, Status determined: ${status}, Color values:`, statusColor);
 
       return {
         date: date.toISOString().split('T')[0],
@@ -106,38 +101,37 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
     .filter(event => event !== null)
 }
 
-function determineStatus(formatting: any, contractStatus: string) {
+function determineStatus(formatting: any) {
   if (!formatting) {
-    console.log('No formatting found, falling back to contract status text');
-    return contractStatus === 'yes' ? 'confirmed' : 'pending';
+    console.log('No color formatting found, defaulting to pending');
+    return 'pending';
   }
 
-  console.log('Analyzing color values for status determination:', {
+  console.log('Analyzing color values:', {
     red: formatting.red,
     green: formatting.green,
-    blue: formatting.blue,
-    contractStatus: contractStatus
+    blue: formatting.blue
   });
 
-  // Check for green (confirmed)
-  if (formatting.green > 0.8 && formatting.red < 0.3 && formatting.blue < 0.3) {
-    console.log('Found pure green background, setting status to confirmed');
+  // Check for pure green (confirmed)
+  if (formatting.green > 0.8 && formatting.red < 0.2 && formatting.blue < 0.2) {
+    console.log('Found green background, setting status to confirmed');
     return 'confirmed';
   }
   
-  // Check for yellow (pending)
-  if (formatting.red > 0.8 && formatting.green > 0.8 && formatting.blue < 0.3) {
-    console.log('Found yellow background, setting status to pending');
+  // Check for yellow/orange (pending)
+  if (formatting.red > 0.8 && formatting.green > 0.5 && formatting.blue < 0.3) {
+    console.log('Found yellow/orange background, setting status to pending');
     return 'pending';
   }
   
   // Check for red (cancelled)
-  if (formatting.red > 0.8 && formatting.green < 0.3 && formatting.blue < 0.3) {
+  if (formatting.red > 0.8 && formatting.green < 0.2 && formatting.blue < 0.2) {
     console.log('Found red background, setting status to cancelled');
     return 'cancelled';
   }
 
   // Default case
-  console.log('No specific color match found, using contract status:', contractStatus);
-  return contractStatus === 'yes' ? 'confirmed' : 'pending';
+  console.log('No specific color match found, defaulting to pending');
+  return 'pending';
 }
