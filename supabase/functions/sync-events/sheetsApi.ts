@@ -32,14 +32,26 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
-  // Log analysis of rows
-  console.log('--- Row Analysis Start ---');
+  // Detailed row analysis
+  console.log('\n=== SPREADSHEET ANALYSIS ===');
+  console.log('Total rows found:', values.values ? values.values.length : 0);
+  console.log('\n=== LINE BY LINE ANALYSIS ===');
+  
   (values.values || []).forEach((row: any[], index: number) => {
     const lineNumber = index + 1;
-    const hasDate = row[0] && row[0].trim() !== '';
-    console.log(`Line ${lineNumber}: ${hasDate ? 'Contains data' : 'Blank line'} - Value: "${row[0] || 'empty'}"`)
+    const dateValue = row[0] ? row[0].trim() : '';
+    const hasDate = dateValue !== '';
+    const otherColumns = row.slice(1).map(cell => cell || '').join(' | ');
+    
+    console.log(`Line ${lineNumber.toString().padStart(3, '0')}: ${hasDate ? '📅 HAS DATA' : '❌ BLANK   '}`);
+    if (hasDate) {
+      console.log(`   Date: "${dateValue}"`);
+      console.log(`   Other columns: ${otherColumns}`);
+    }
+    console.log('   ---');
   });
-  console.log('--- Row Analysis End ---');
+  
+  console.log('\n=== END OF ANALYSIS ===\n');
 
   // Extract the row data which contains the formatting information
   const rowFormatting = formatting.sheets?.[0]?.data?.[0]?.rowData || [];
