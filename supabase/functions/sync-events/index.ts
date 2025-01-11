@@ -59,23 +59,26 @@ serve(async (req) => {
         // Parse the date string (e.g., "Friday December 31")
         const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
         const month = new Date(`${monthName} 1, 2025`).getMonth()
-        let year = 2025
+        const day = parseInt(dayNum)
+        
+        // Skip creating events for January 1st if they're actually NYE events
+        if (month === 0 && day === 1 && title.toLowerCase().includes('dab')) {
+          console.log(`Skipping January 1st event: ${title} as it's likely a NYE event`)
+          return null
+        }
 
-        // Handle year transition for December 31st events
-        if (month === 11 && parseInt(dayNum) === 31) {
-          console.log(`Found NYE event: ${title}`)
-          // This is a NYE event, don't create an event for Jan 1st
-          if (title.toLowerCase().includes('nye')) {
-            return {
-              date: `2025-12-31`,
-              title: title,
-              status: contractStatus === 'yes' ? 'confirmed' : 'pending',
-              is_recurring: false
-            }
+        // Handle NYE events
+        if (month === 11 && day === 31) {
+          console.log(`Processing NYE event: ${title}`)
+          return {
+            date: '2025-12-31',
+            title: title,
+            status: contractStatus === 'yes' ? 'confirmed' : 'pending',
+            is_recurring: false
           }
         }
 
-        const date = new Date(year, month, parseInt(dayNum))
+        const date = new Date(2025, month, day)
         if (isNaN(date.getTime())) {
           console.warn(`Skipping invalid date in row ${index + 1}:`, dateStr)
           return null
@@ -95,7 +98,7 @@ serve(async (req) => {
       .from('events')
       .delete()
       .gte('date', '2025-01-01')
-      .lt('date', '2026-01-01') // Fixed: Corrected the date comparison syntax
+      .lt('date', '2026-01-01')
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
