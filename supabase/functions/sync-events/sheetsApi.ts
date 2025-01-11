@@ -15,7 +15,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Fetch only background color formatting for Column G
+  // Fetch background color formatting for Column G
   const formattingResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
@@ -32,64 +32,42 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
-  console.log('\n=== DETAILED COLOR ANALYSIS ===');
-  
-  // Analyze each row, focusing on dates and background colors
-  values.values?.forEach((row: any[], index: number) => {
-    const dateStr = row[0]?.trim() || '';
-    const rowNumber = index + 1;
-    
-    // Get background color for this row's Column G
-    const bgColor = formatting.sheets?.[0]?.data?.[0]?.rowData?.[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-    
-    if (rowNumber === 13) {
-      console.log('\n=== LINE 13 DETAILED ANALYSIS ===');
-      console.log(`Date: "${dateStr}"`);
-      console.log('Raw background color data:', JSON.stringify(bgColor, null, 2));
-      console.log('RGB Values:', {
-        red: bgColor?.red || 0,
-        green: bgColor?.green || 0,
-        blue: bgColor?.blue || 0
-      });
-    }
-  });
-
   return {
     values: values.values || [],
     formatting: formatting.sheets?.[0]?.data?.[0]?.rowData || [],
   };
 }
 
-function determineStatusFromColor(bgColor: any, rowNumber: number) {
+function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string) {
   if (!bgColor) {
-    console.log(`Row ${rowNumber}: No background color found, defaulting to pending`);
+    console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
     return 'pending';
   }
 
   const { red = 0, green = 0, blue = 0 } = bgColor;
   
-  // Log exact RGB values for debugging
-  console.log(`Row ${rowNumber} RGB values: R:${red} G:${green} B:${blue}`);
-  
+  console.log(`Row ${rowNumber} (${dateStr}) RGB values: R:${red.toFixed(3)} G:${green.toFixed(3)} B:${blue.toFixed(3)}`);
+
+  // More precise color detection
   // Yellow detection (high red and green, low blue)
   if (red > 0.8 && green > 0.8 && blue < 0.3) {
-    console.log(`Row ${rowNumber}: Yellow detected (Pending)`);
+    console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
     return 'pending';
   }
   
-  // Green detection (high green, low red and blue)
-  if (green > 0.8 && red < 0.3 && blue < 0.3) {
-    console.log(`Row ${rowNumber}: Green detected (Confirmed)`);
+  // Green detection (predominantly green)
+  if (green > 0.8 && red < 0.5 && blue < 0.5) {
+    console.log(`Row ${rowNumber} (${dateStr}): GREEN detected → Confirmed`);
     return 'confirmed';
   }
   
-  // Red detection (high red, low green and blue)
-  if (red > 0.8 && green < 0.3 && blue < 0.3) {
-    console.log(`Row ${rowNumber}: Red detected (Cancelled)`);
+  // Red detection (predominantly red)
+  if (red > 0.8 && green < 0.5 && blue < 0.5) {
+    console.log(`Row ${rowNumber} (${dateStr}): RED detected → Cancelled`);
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber}: No specific color match, defaulting to pending`);
+  console.log(`Row ${rowNumber} (${dateStr}): No specific color match, defaulting to pending`);
   return 'pending';
 }
 
@@ -101,12 +79,12 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       return hasDate && hasContent;
     })
     .map((row: string[], index: number) => {
-      const dateStr = row[0]
-      const columnC = row[1]?.trim() || ''
-      const room = row[2]?.trim() || ''
-      const promoter = row[3]?.trim() || ''
-      const capacity = row[4]?.trim() || ''
-      const columnG = row[5]?.trim() || ''
+      const dateStr = row[0]?.trim() || '';
+      const columnC = row[1]?.trim() || '';
+      const room = row[2]?.trim() || '';
+      const promoter = row[3]?.trim() || '';
+      const capacity = row[4]?.trim() || '';
+      const columnG = row[5]?.trim() || '';
 
       let title = columnC;
       if (!title) {
@@ -114,36 +92,35 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       }
       
       const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-      const status = determineStatusFromColor(bgColor, index + 1);
+      const status = determineStatusFromColor(bgColor, index + 1, dateStr);
 
-      const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
-      const month = new Date(`${monthName} 1, 2025`).getMonth()
-      const day = parseInt(dayNum)
+      const [dayName, monthName, dayNum] = dateStr.split(' ');
+      const month = new Date(`${monthName} 1, 2025`).getMonth();
+      const day = parseInt(dayNum);
       
-      if (month === 0 && day === 1) return null;
+      if (isNaN(month) || isNaN(day)) {
+        console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
+        return null;
+      }
 
-      const date = new Date(2025, month, day)
-      if (isNaN(date.getTime())) return null;
-
-      // Special logging for line 13
-      if (index + 1 === 13) {
-        console.log('\n=== LINE 13 EVENT DATA ===');
-        console.log('Date:', date.toISOString().split('T')[0]);
-        console.log('Title:', title);
-        console.log('Status:', status);
-        console.log('Background Color:', bgColor);
+      const date = new Date(2025, month, day);
+      
+      // Validate date
+      if (isNaN(date.getTime())) {
+        console.log(`Row ${index + 1}: Could not parse date: "${dateStr}"`);
+        return null;
       }
 
       return {
         date: date.toISOString().split('T')[0],
-        title: title,
-        room: room,
-        promoter: promoter,
-        capacity: capacity,
-        status: status,
+        title,
+        room,
+        promoter,
+        capacity,
+        status,
         is_recurring: false,
         _sheet_line_number: index + 1
-      }
+      };
     })
     .filter(event => event !== null);
 }
