@@ -94,34 +94,35 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
       const status = determineStatusFromColor(bgColor, index + 1, dateStr);
 
-      // Handle special date formats and year transition
+      // Parse the date string
       let date: Date;
+      
+      // Handle NYD and NYE specifically
       if (dateStr.toLowerCase().includes('nye')) {
         date = new Date(2025, 11, 31); // December 31st, 2025
       } else if (dateStr.toLowerCase().includes('nyd')) {
         date = new Date(2026, 0, 1); // January 1st, 2026
       } else {
         // Parse regular date format (e.g., "Friday January 3")
-        const [dayName, monthName, dayNum] = dateStr.split(' ');
-        const month = new Date(`${monthName} 1, 2025`).getMonth();
-        const day = parseInt(dayNum);
+        const parts = dateStr.split(' ');
+        if (parts.length < 3) {
+          console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
+          return null;
+        }
         
-        if (isNaN(month) || isNaN(day)) {
+        const monthName = parts[1];
+        const dayNum = parseInt(parts[2]);
+        const month = new Date(`${monthName} 1, 2025`).getMonth();
+        
+        if (isNaN(month) || isNaN(dayNum)) {
           console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
           return null;
         }
 
-        // Special handling for January 1st, 2025
-        if (month === 0 && day === 1 && !dateStr.toLowerCase().includes('nyd')) {
-          date = new Date(2025, 0, 1); // January 1st, 2025
-        } else {
-          // For other dates, if we're in December and the month is January/February, use 2026
-          const shouldUse2026 = month <= 1 && values[0][0]?.toLowerCase().includes('december');
-          const year = shouldUse2026 ? 2026 : 2025;
-          date = new Date(year, month, day);
-        }
+        // Regular dates in 2025
+        date = new Date(2025, month, dayNum);
       }
-      
+
       // Validate date
       if (isNaN(date.getTime())) {
         console.log(`Row ${index + 1}: Could not parse date: "${dateStr}"`);
