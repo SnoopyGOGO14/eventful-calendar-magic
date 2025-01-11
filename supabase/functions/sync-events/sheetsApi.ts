@@ -87,19 +87,6 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return null;
       }
 
-      if (month === 11 && day === 31) {
-        console.log(`Processing NYE event: ${title}`);
-        return {
-          date: '2025-12-31',
-          title: title,
-          room: room,
-          promoter: promoter,
-          capacity: capacity,
-          status: determineStatusFromColor(cellFormat),
-          is_recurring: false
-        }
-      }
-
       const date = new Date(2025, month, day)
       if (isNaN(date.getTime())) {
         console.warn(`Skipping invalid date in row ${index + 1}:`, dateStr)
@@ -128,21 +115,23 @@ function determineStatusFromColor(color: any) {
   const { red = 0, green = 0, blue = 0 } = color;
   console.log('Color values:', { red, green, blue });
 
-  // Green color detection (confirmed)
-  if (green > 0.6 && red < 0.5) {
-    console.log('Detected green - Confirmed');
+  // Improved color detection thresholds based on the spreadsheet image
+  
+  // Green (confirmed) - Matches the bright green in the spreadsheet
+  if (green > 0.8 && red < 0.3 && blue < 0.3) {
+    console.log('Detected bright green - Confirmed');
     return 'confirmed';
   }
   
-  // Red color detection (cancelled)
-  if (red > 0.6 && green < 0.5 && blue < 0.5) {
-    console.log('Detected red - Cancelled');
+  // Red (cancelled) - Matches the bright red in the spreadsheet
+  if (red > 0.8 && green < 0.2 && blue < 0.2) {
+    console.log('Detected bright red - Cancelled');
     return 'cancelled';
   }
   
-  // Yellow/Orange color detection (pending)
-  if (red > 0.6 && green > 0.5) {
-    console.log('Detected yellow/orange - Pending');
+  // Yellow/Orange (pending) - Matches the yellow in the spreadsheet
+  if (red > 0.8 && green > 0.8 && blue < 0.3) {
+    console.log('Detected yellow - Pending');
     return 'pending';
   }
 
