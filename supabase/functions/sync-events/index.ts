@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { getAccessToken } from './googleAuth.ts'
+import { fetchSheetData, parseSheetRows } from './sheetsApi.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,66 +34,11 @@ serve(async (req) => {
     const accessToken = await getAccessToken(credentials)
 
     console.log('Fetching data from 2025 tab...')
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Google Sheets API error: ${await response.text()}`)
-    }
-
-    const data = await response.json()
+    const data = await fetchSheetData(spreadsheetId, accessToken)
     const rows = data.values || []
     console.log(`Found ${rows.length} rows in 2025 tab`)
 
-    const events = rows
-      .filter((row: string[]) => row[0] && row[1])
-      .map((row: string[], index: number) => {
-        const dateStr = row[0] // Column B
-        const title = row[1] || '' // Column C
-        const contractStatus = (row[7] || '').toLowerCase() // Column I
-
-        // Parse the date string (e.g., "Friday December 31")
-        const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
-        const month = new Date(`${monthName} 1, 2025`).getMonth()
-        const day = parseInt(dayNum)
-        
-        // Skip creating events for January 1st as they're likely NYE events from previous year
-        if (month === 0 && day === 1) {
-          console.log(`Skipping January 1st event: ${title} as it's likely a NYE event from previous year`)
-          return null
-        }
-
-        // Handle NYE events
-        if (month === 11 && day === 31) {
-          console.log(`Processing NYE event: ${title}`)
-          return {
-            date: '2025-12-31',
-            title: title,
-            status: contractStatus === 'yes' ? 'confirmed' : 'pending',
-            is_recurring: false
-          }
-        }
-
-        const date = new Date(2025, month, day)
-        if (isNaN(date.getTime())) {
-          console.warn(`Skipping invalid date in row ${index + 1}:`, dateStr)
-          return null
-        }
-
-        return {
-          date: date.toISOString().split('T')[0],
-          title: title,
-          status: contractStatus === 'yes' ? 'confirmed' : 'pending',
-          is_recurring: false
-        }
-      })
-      .filter(event => event !== null)
+    const events = parseSheetRows(rows)
 
     console.log('Clearing existing 2025 events...')
     const { error: deleteError } = await supabase
@@ -132,77 +79,3 @@ serve(async (req) => {
     )
   }
 })
-
-async function getAccessToken(credentials: any) {
-  const now = Math.floor(Date.now() / 1000)
-  
-  const jwtHeader = btoa(JSON.stringify({
-    alg: 'RS256',
-    typ: 'JWT'
-  }))
-  
-  const jwtClaimSet = btoa(JSON.stringify({
-    iss: credentials.client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now
-  }))
-
-  const signInput = `${jwtHeader}.${jwtClaimSet}`
-  const encoder = new TextEncoder()
-  const signBytes = encoder.encode(signInput)
-
-  const keyImportParams = {
-    name: 'RSASSA-PKCS1-v1_5',
-    hash: { name: 'SHA-256' },
-  }
-
-  const pemHeader = '-----BEGIN PRIVATE KEY-----'
-  const pemFooter = '-----END PRIVATE KEY-----'
-  const pemContents = credentials.private_key
-    .replace(pemHeader, '')
-    .replace(pemFooter, '')
-    .replace(/\s/g, '')
-
-  const binaryKey = atob(pemContents)
-  const binaryKeyBytes = new Uint8Array(binaryKey.length)
-  for (let i = 0; i < binaryKey.length; i++) {
-    binaryKeyBytes[i] = binaryKey.charCodeAt(i)
-  }
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    binaryKeyBytes,
-    keyImportParams,
-    false,
-    ['sign']
-  )
-
-  const signature = await crypto.subtle.sign(
-    keyImportParams.name,
-    cryptoKey,
-    signBytes
-  )
-
-  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-  const jwt = `${signInput}.${signatureBase64}`
-
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt
-    })
-  })
-
-  if (!tokenResponse.ok) {
-    throw new Error('Failed to get access token: ' + await tokenResponse.text())
-  }
-
-  const { access_token } = await tokenResponse.json()
-  return access_token
-}
