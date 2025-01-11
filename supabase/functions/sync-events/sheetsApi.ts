@@ -118,7 +118,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
         const monthName = parts[1];
         const dayNum = parseInt(parts[2]);
         
-        // All dates after January 1st should be in 2025
+        // All dates should be in 2025 except for NYD which is in 2026
         const month = new Date(`${monthName} 1, 2025`).getMonth();
         
         if (isNaN(month) || isNaN(dayNum)) {
