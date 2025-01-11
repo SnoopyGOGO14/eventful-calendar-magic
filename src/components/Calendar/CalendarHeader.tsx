@@ -13,26 +13,30 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onDateChange,
 }) => {
   return (
-    <div className="flex items-center justify-between relative mb-4 min-h-[48px] px-20">
-      <Button
-        variant="outline"
-        onClick={() => onDateChange(subMonths(currentDate, 1))}
-        className="absolute left-0"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex-1 flex items-center justify-between max-w-md mx-auto">
+        <Button
+          variant="outline"
+          onClick={() => onDateChange(subMonths(currentDate, 1))}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <h1 className="text-4xl font-bold text-white">
+          {format(currentDate, 'MMMM yyyy')}
+        </h1>
+        
+        <Button
+          variant="outline"
+          onClick={() => onDateChange(addMonths(currentDate, 1))}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
       
-      <h1 className="text-4xl font-bold text-white">
-        {format(currentDate, 'MMMM yyyy')}
-      </h1>
-      
-      <Button
-        variant="outline"
-        onClick={() => onDateChange(addMonths(currentDate, 1))}
-        className="absolute right-0"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
+      <div className="w-32">
+        {/* This empty div maintains space for the sync button */}
+      </div>
     </div>
   );
 };
