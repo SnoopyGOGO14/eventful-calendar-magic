@@ -44,20 +44,26 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-// Define more precise color ranges
+function isInRange(value: number, range: { min: number, max: number }): boolean {
+  // Add some tolerance to the range check
+  const tolerance = 0.01;
+  return value >= (range.min - tolerance) && value <= (range.max + tolerance);
+}
+
+// Define more precise color ranges with wider tolerances
 const TARGET_COLORS = {
   green: { 
-    red: { min: 0.203, max: 0.205 }, 
-    green: { min: 0.658, max: 0.660 }, 
-    blue: { min: 0.324, max: 0.326 } 
+    red: { min: 0.19, max: 0.21 }, 
+    green: { min: 0.64, max: 0.67 }, 
+    blue: { min: 0.31, max: 0.34 } 
   },
   yellow: { 
-    red: { min: 0.983, max: 0.985 }, 
-    green: { min: 0.736, max: 0.738 }, 
-    blue: { min: 0.015, max: 0.017 } 
+    red: { min: 0.97, max: 0.99 }, 
+    green: { min: 0.72, max: 0.75 }, 
+    blue: { min: 0.01, max: 0.03 } 
   },
   red: { 
-    red: { min: 0.95, max: 1 }, 
+    red: { min: 0.94, max: 1 }, 
     green: { min: 0, max: 0.1 }, 
     blue: { min: 0, max: 0.1 } 
   }
@@ -111,7 +117,13 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber} (${dateStr}): No color match found, defaulting to pending`);
+  // Check for white (1,1,1) explicitly
+  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
+    console.log(`Row ${rowNumber} (${dateStr}): WHITE detected → Pending`);
+    return 'pending';
+  }
+
+  console.log(`Row ${rowNumber} (${dateStr}): No color match found for RGB(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}), defaulting to pending`);
   return 'pending';
 }
 
