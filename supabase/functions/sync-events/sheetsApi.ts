@@ -72,9 +72,6 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
 }
 
 export function parseSheetRows(values: string[][], formatting: any[]) {
-  // Create a Set to track unique date-title combinations
-  const uniqueEvents = new Set();
-
   return values
     .filter((row: string[], index: number) => {
       const hasDate = row[0];
@@ -138,18 +135,6 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
         console.log(`Row ${index + 1}: Could not parse date: "${dateStr}"`);
         return null;
       }
-
-      // Create a unique key for this event
-      const eventKey = `${date.toISOString()}-${title}`;
-
-      // Skip if we've already seen this exact event
-      if (uniqueEvents.has(eventKey)) {
-        console.log(`Row ${index + 1}: Skipping duplicate event: ${title} on ${date.toISOString()}`);
-        return null;
-      }
-
-      // Add this event to our set of unique events
-      uniqueEvents.add(eventKey);
 
       return {
         date: date.toISOString().split('T')[0],
