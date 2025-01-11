@@ -15,7 +15,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   // Then fetch the formatting
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!I:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -47,8 +47,8 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const capacity = row[4] || '' // Column F
       const contractStatus = (row[7] || '').toLowerCase() // Column I
 
-      // Get background color from formatting - using index 7 for Column I (contract status)
-      const rowFormatting = formatting[index]?.values?.[7]?.userEnteredFormat?.backgroundColor;
+      // Get background color from formatting - only looking at Column I
+      const rowFormatting = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
       console.log(`Row ${index} formatting for ${dateStr}:`, {
         red: rowFormatting?.red,
         green: rowFormatting?.green,
@@ -74,7 +74,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
           room: room,
           promoter: promoter,
           capacity: capacity,
-          status: determineStatus(contractStatus, rowFormatting),
+          status: determineStatus(rowFormatting, contractStatus),
           is_recurring: false
         }
       }
@@ -85,7 +85,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return null
       }
 
-      const status = determineStatus(contractStatus, rowFormatting);
+      const status = determineStatus(rowFormatting, contractStatus);
       console.log(`Date: ${dateStr}, Status determined: ${status}`);
 
       return {
@@ -101,7 +101,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
     .filter(event => event !== null)
 }
 
-function determineStatus(contractStatus: string, formatting: any) {
+function determineStatus(formatting: any, contractStatus: string) {
   if (!formatting) {
     console.log('No formatting found, falling back to contract status');
     return contractStatus === 'yes' ? 'confirmed' : 'pending';
