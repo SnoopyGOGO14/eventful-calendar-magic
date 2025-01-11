@@ -38,11 +38,27 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
+// Define standard colors with more flexible ranges
+const TARGET_COLORS = {
+  yellow: { 
+    red: { min: 0.9, max: 1 }, 
+    green: { min: 0.8, max: 1 }, 
+    blue: { min: 0, max: 0.2 } 
+  },
+  green: { 
+    red: { min: 0, max: 0.3 }, 
+    green: { min: 0.7, max: 1 }, 
+    blue: { min: 0, max: 0.3 } 
+  },
+  red: { 
+    red: { min: 0.7, max: 1 }, 
+    green: { min: 0, max: 0.3 }, 
+    blue: { min: 0, max: 0.3 } 
+  }
+};
+
 function hexToRgb(hex: string) {
-  // Remove the # if present
   hex = hex.replace(/^#/, '');
-  
-  // Parse the hex string
   const bigint = parseInt(hex, 16);
   const r = (bigint >> 16) & 255;
   const g = (bigint >> 8) & 255;
@@ -55,51 +71,47 @@ function hexToRgb(hex: string) {
   };
 }
 
-// Define standard colors with precise RGB values
-const TARGET_COLORS = {
-  yellow: { red: 1, green: 0.85, blue: 0 },     // Slightly adjusted yellow
-  green: { red: 0, green: 0.85, blue: 0 },      // Slightly darker green
-  red: { red: 0.85, green: 0, blue: 0 }         // Slightly darker red
-};
+function isInRange(value: number, range: { min: number, max: number }): boolean {
+  return value >= range.min && value <= range.max;
+}
 
-function isColorMatch(color: any, target: any, tolerance: number = 0.2) {
+function isColorMatch(color: any, targetRanges: any): boolean {
   if (!color) return false;
   
-  // Log the comparison for debugging
-  console.log('Comparing colors:', {
-    actual: color,
-    target: target,
-    redDiff: Math.abs(color.red - target.red),
-    greenDiff: Math.abs(color.green - target.green),
-    blueDiff: Math.abs(color.blue - target.blue)
+  console.log('Color check:', {
+    color,
+    targetRanges,
+    redInRange: isInRange(color.red, targetRanges.red),
+    greenInRange: isInRange(color.green, targetRanges.green),
+    blueInRange: isInRange(color.blue, targetRanges.blue)
   });
 
   return (
-    Math.abs(color.red - target.red) <= tolerance &&
-    Math.abs(color.green - target.green) <= tolerance &&
-    Math.abs(color.blue - target.blue) <= tolerance
+    isInRange(color.red, targetRanges.red) &&
+    isInRange(color.green, targetRanges.green) &&
+    isInRange(color.blue, targetRanges.blue)
   );
 }
 
-function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string) {
+function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string): string {
   if (!bgColor) {
     console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
     return 'pending';
   }
 
-  // If bgColor is in hex format, convert it to RGB
+  // Convert hex format to RGB if needed
   if (typeof bgColor === 'string' && bgColor.startsWith('#')) {
     bgColor = hexToRgb(bgColor);
   }
 
-  // Log exact RGB values for debugging
-  console.log(`Row ${rowNumber} (${dateStr}) - RGB values:`, {
+  // Log the exact color values
+  console.log(`Row ${rowNumber} (${dateStr}) - Color values:`, {
     red: bgColor.red?.toFixed(3),
     green: bgColor.green?.toFixed(3),
     blue: bgColor.blue?.toFixed(3)
   });
 
-  // Check against standard colors with detailed logging
+  // Check colors with detailed logging
   if (isColorMatch(bgColor, TARGET_COLORS.yellow)) {
     console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
     return 'pending';
@@ -121,7 +133,7 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'pending';
   }
 
-  console.log(`Row ${rowNumber} (${dateStr}): No specific color match, defaulting to pending`);
+  console.log(`Row ${rowNumber} (${dateStr}): No color match found, defaulting to pending`);
   return 'pending';
 }
 
