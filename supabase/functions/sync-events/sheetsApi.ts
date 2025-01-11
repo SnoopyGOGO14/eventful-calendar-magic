@@ -108,37 +108,26 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
 
 function determineStatusFromColor(color: any) {
   if (!color) {
-    console.log('No color formatting found, defaulting to pending');
+    console.log('No color found, defaulting to pending');
     return 'pending';
   }
 
   const { red = 0, green = 0, blue = 0 } = color;
   
-  // Log the exact RGB values we're receiving
-  console.log('Raw color values:', { 
-    red: red.toFixed(4), 
-    green: green.toFixed(4), 
-    blue: blue.toFixed(4) 
-  });
+  console.log('Color values:', { red, green, blue });
 
-  // Green (confirmed) - Matches the custom green fill
-  if (green > 0.6 && red < 0.4 && blue < 0.4) {
-    console.log('Detected green fill - Confirmed');
+  // Simple color detection - just check which color is dominant
+  if (green > red && green > blue) {
+    console.log('Green is dominant - Confirmed');
     return 'confirmed';
   }
   
-  // Red (cancelled) - Matches the custom red fill
-  if (red > 0.8 && green < 0.2 && blue < 0.2) {
-    console.log('Detected red fill - Cancelled');
+  if (red > green && red > blue) {
+    console.log('Red is dominant - Cancelled');
     return 'cancelled';
   }
   
-  // Orange/Yellow (pending) - Matches the custom orange/yellow fill
-  if (red > 0.8 && green > 0.6 && blue < 0.2) {
-    console.log('Detected orange/yellow fill - Pending');
-    return 'pending';
-  }
-
-  console.log('Color did not match any status, defaulting to pending');
+  // If neither green nor red is clearly dominant, or if yellow/orange (red + green)
+  console.log('Defaulting to pending');
   return 'pending';
 }
