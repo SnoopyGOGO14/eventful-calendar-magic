@@ -45,25 +45,25 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 function isInRange(value: number, range: { min: number, max: number }): boolean {
-  // Add some tolerance to the range check
-  const tolerance = 0.01;
+  // Increase tolerance for better color matching
+  const tolerance = 0.05;
   return value >= (range.min - tolerance) && value <= (range.max + tolerance);
 }
 
-// Define more precise color ranges with wider tolerances
+// Adjusted color ranges based on actual Google Sheets values
 const TARGET_COLORS = {
   green: { 
-    red: { min: 0.19, max: 0.21 }, 
-    green: { min: 0.64, max: 0.67 }, 
-    blue: { min: 0.31, max: 0.34 } 
+    red: { min: 0.20, max: 0.22 }, 
+    green: { min: 0.65, max: 0.67 }, 
+    blue: { min: 0.32, max: 0.34 } 
   },
   yellow: { 
-    red: { min: 0.97, max: 0.99 }, 
-    green: { min: 0.72, max: 0.75 }, 
-    blue: { min: 0.01, max: 0.03 } 
+    red: { min: 0.97, max: 1.0 }, 
+    green: { min: 0.73, max: 0.76 }, 
+    blue: { min: 0.01, max: 0.04 } 
   },
   red: { 
-    red: { min: 0.94, max: 1 }, 
+    red: { min: 0.94, max: 1.0 }, 
     green: { min: 0, max: 0.1 }, 
     blue: { min: 0, max: 0.1 } 
   }
@@ -75,29 +75,18 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'pending';
   }
 
-  // Add specific debug logging for April 18th
-  if (dateStr.includes('April 18')) {
-    console.log('DEBUGGING APRIL 18:', {
-      rawColor: bgColor,
-      red: Number(bgColor.red).toFixed(6),
-      green: Number(bgColor.green).toFixed(6),
-      blue: Number(bgColor.blue).toFixed(6),
-      targetGreen: TARGET_COLORS.green
-    });
-  }
-
-  // Log exact color values with more precision
-  console.log(`Row ${rowNumber} (${dateStr}) - Exact color values:`, {
-    red: Number(bgColor.red).toFixed(6),
-    green: Number(bgColor.green).toFixed(6),
-    blue: Number(bgColor.blue).toFixed(6)
+  // Enhanced debugging for all events
+  console.log(`Color values for ${dateStr}:`, {
+    red: bgColor.red.toFixed(4),
+    green: bgColor.green.toFixed(4),
+    blue: bgColor.blue.toFixed(4)
   });
 
   // Check for green (confirmed)
   if (isInRange(bgColor.red, TARGET_COLORS.green.red) &&
       isInRange(bgColor.green, TARGET_COLORS.green.green) &&
       isInRange(bgColor.blue, TARGET_COLORS.green.blue)) {
-    console.log(`Row ${rowNumber} (${dateStr}): GREEN detected → Confirmed`);
+    console.log(`${dateStr}: GREEN detected → Confirmed`);
     return 'confirmed';
   }
 
@@ -105,7 +94,7 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
   if (isInRange(bgColor.red, TARGET_COLORS.yellow.red) &&
       isInRange(bgColor.green, TARGET_COLORS.yellow.green) &&
       isInRange(bgColor.blue, TARGET_COLORS.yellow.blue)) {
-    console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
+    console.log(`${dateStr}: YELLOW detected → Pending`);
     return 'pending';
   }
 
@@ -113,17 +102,17 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
   if (isInRange(bgColor.red, TARGET_COLORS.red.red) &&
       isInRange(bgColor.green, TARGET_COLORS.red.green) &&
       isInRange(bgColor.blue, TARGET_COLORS.red.blue)) {
-    console.log(`Row ${rowNumber} (${dateStr}): RED detected → Cancelled`);
+    console.log(`${dateStr}: RED detected → Cancelled`);
     return 'cancelled';
   }
 
   // Check for white (1,1,1) explicitly
   if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`Row ${rowNumber} (${dateStr}): WHITE detected → Pending`);
+    console.log(`${dateStr}: WHITE detected → Pending`);
     return 'pending';
   }
 
-  console.log(`Row ${rowNumber} (${dateStr}): No color match found for RGB(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}), defaulting to pending`);
+  console.log(`${dateStr}: No color match found for RGB(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}), defaulting to pending`);
   return 'pending';
 }
 
