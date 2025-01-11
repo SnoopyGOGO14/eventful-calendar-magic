@@ -97,38 +97,26 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       // Parse the date string
       let date: Date;
       
-      // Check for NYD/NYE specifically
-      const isNYD = dateStr.toLowerCase().includes('nyd');
-      const isNYE = dateStr.toLowerCase().includes('nye');
-
-      if (isNYE) {
-        date = new Date(2024, 11, 31); // December 31st, 2024
-        console.log(`Row ${index + 1}: NYE event detected for Dec 31, 2024`);
-      } else if (isNYD) {
-        date = new Date(2025, 0, 1); // January 1st, 2025
-        console.log(`Row ${index + 1}: NYD event detected for Jan 1, 2025`);
-      } else {
-        // Parse regular date format (e.g., "Friday January 3")
-        const parts = dateStr.split(' ');
-        if (parts.length < 3) {
-          console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
-          return null;
-        }
-        
-        const monthName = parts[1];
-        const dayNum = parseInt(parts[2]);
-        
-        // All dates should be in 2025
-        const month = new Date(`${monthName} 1, 2025`).getMonth();
-        
-        if (isNaN(month) || isNaN(dayNum)) {
-          console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
-          return null;
-        }
-
-        date = new Date(2025, month, dayNum);
-        console.log(`Row ${index + 1}: Regular event parsed for ${date.toISOString()}`);
+      // Parse regular date format (e.g., "Friday January 3")
+      const parts = dateStr.split(' ');
+      if (parts.length < 3) {
+        console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
+        return null;
       }
+      
+      const monthName = parts[1];
+      const dayNum = parseInt(parts[2]);
+      
+      // All dates should be in 2025
+      const month = new Date(`${monthName} 1, 2025`).getMonth();
+      
+      if (isNaN(month) || isNaN(dayNum)) {
+        console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
+        return null;
+      }
+
+      date = new Date(2025, month, dayNum);
+      console.log(`Row ${index + 1}: Event parsed for ${date.toISOString()}`);
 
       // Validate date
       if (isNaN(date.getTime())) {
