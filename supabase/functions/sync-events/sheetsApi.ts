@@ -46,10 +46,25 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
     .filter((row: string[], index: number) => row[0] && row[1])
     .map((row: string[], index: number) => {
       const dateStr = row[0] // Column B
-      const title = row[1] || '' // Column C
-      const room = row[2] || '' // Column D
-      const promoter = row[3] || '' // Column E
-      const capacity = row[4] || '' // Column F
+      let title = row[1]?.trim() || '' // Column C
+      const room = row[2]?.trim() || '' // Column D
+      const promoter = row[3]?.trim() || '' // Column E
+      const capacity = row[4]?.trim() || '' // Column F
+
+      // If title (Column C) is empty, try to use room, promoter, or capacity as title
+      if (!title) {
+        console.log(`Row ${index + 1}: Title is empty, checking alternative columns`);
+        if (room) {
+          console.log(`Using room as title: ${room}`);
+          title = room;
+        } else if (promoter) {
+          console.log(`Using promoter as title: ${promoter}`);
+          title = promoter;
+        } else if (capacity) {
+          console.log(`Using capacity as title: ${capacity}`);
+          title = capacity;
+        }
+      }
       
       // Get color from formatting data for the current row
       const rowFormat = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
