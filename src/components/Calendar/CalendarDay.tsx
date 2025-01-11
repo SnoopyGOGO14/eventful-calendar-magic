@@ -59,11 +59,26 @@ export const CalendarDay = ({ day, currentDate, event, onSelect }: CalendarDayPr
                 {event.title}
               </div>
             )}
+            {event.room && (
+              <div className="text-xs text-white/70">
+                Room: {event.room}
+              </div>
+            )}
+            {event.promoter && (
+              <div className="text-xs text-white/70">
+                By: {event.promoter}
+              </div>
+            )}
+            {event.capacity && (
+              <div className="text-xs text-white/70">
+                Cap: {event.capacity}
+              </div>
+            )}
           </div>
           
           {statusBand && (
             <div className={cn(
-              "absolute bottom-0 left-0 right-0 h-[6px]", // Changed to 6px height
+              "absolute bottom-0 left-0 right-0 h-[6px]",
               statusBand.bg
             )}>
               <span className="absolute bottom-[-16px] left-0 right-0 text-center text-xs text-white/70">

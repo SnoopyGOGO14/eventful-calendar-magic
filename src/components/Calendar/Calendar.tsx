@@ -14,6 +14,9 @@ export interface Event {
   title: string;
   status: 'confirmed' | 'pending' | 'cancelled';
   isRecurring: boolean;
+  room?: string;
+  promoter?: string;
+  capacity?: string;
 }
 
 export const Calendar = () => {

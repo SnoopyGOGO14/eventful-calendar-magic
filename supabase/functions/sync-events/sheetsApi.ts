@@ -42,6 +42,9 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
     .map((row: string[], index: number) => {
       const dateStr = row[0] // Column B
       const title = row[1] || '' // Column C
+      const room = row[2] || '' // Column D
+      const promoter = row[3] || '' // Column E
+      const capacity = row[4] || '' // Column F
       const contractStatus = (row[7] || '').toLowerCase() // Column I
 
       // Get background color from formatting
@@ -62,6 +65,9 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return {
           date: '2025-12-31',
           title: title,
+          room: room,
+          promoter: promoter,
+          capacity: capacity,
           status: determineStatus(contractStatus, rowFormatting),
           is_recurring: false
         }
@@ -76,6 +82,9 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       return {
         date: date.toISOString().split('T')[0],
         title: title,
+        room: room,
+        promoter: promoter,
+        capacity: capacity,
         status: determineStatus(contractStatus, rowFormatting),
         is_recurring: false
       }
