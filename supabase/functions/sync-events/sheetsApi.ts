@@ -111,10 +111,15 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
           return null;
         }
 
-        // If we're in December and the month is January/February, use 2026
-        const shouldUse2026 = month <= 1 && values[0][0]?.toLowerCase().includes('december');
-        const year = shouldUse2026 ? 2026 : 2025;
-        date = new Date(year, month, day);
+        // Special handling for January 1st, 2025
+        if (month === 0 && day === 1 && !dateStr.toLowerCase().includes('nyd')) {
+          date = new Date(2025, 0, 1); // January 1st, 2025
+        } else {
+          // For other dates, if we're in December and the month is January/February, use 2026
+          const shouldUse2026 = month <= 1 && values[0][0]?.toLowerCase().includes('december');
+          const year = shouldUse2026 ? 2026 : 2025;
+          date = new Date(year, month, day);
+        }
       }
       
       // Validate date
