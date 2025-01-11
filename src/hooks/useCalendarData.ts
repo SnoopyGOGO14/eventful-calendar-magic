@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Event } from '@/components/Calendar/Calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -18,14 +17,18 @@ export const useCalendarData = () => {
       date: item.date,
       title: item.title,
       status: (item.status as "confirmed" | "pending" | "cancelled") || "pending",
-      isRecurring: item.is_recurring
+      isRecurring: item.is_recurring,
+      room: item.room,
+      promoter: item.promoter,
+      capacity: item.capacity
     }));
   };
 
-  const { data: events = [], isLoading } = useQuery({
+  const { data: events, isLoading, error } = useQuery({
     queryKey: ['events'],
     queryFn: fetchEvents,
+    initialData: [], // Provide empty array as initial data
   });
 
-  return { events, isLoading };
+  return { events, isLoading, error };
 };

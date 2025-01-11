@@ -2,11 +2,13 @@ import React from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Event } from './Calendar';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CalendarDayProps {
   date: Date;
   currentDate: Date;
   event?: Event;
+  isLoading?: boolean;
   onSelect: (date: Date) => void;
 }
 
@@ -14,6 +16,7 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
   date,
   currentDate,
   event,
+  isLoading = false,
   onSelect,
 }) => {
   const getStatusBand = (status: string) => {
@@ -47,10 +50,10 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
         {format(date, 'd')}
       </div>
       
-      {event && (
-        <div 
-          className="relative bg-[#1B3A4B] p-2 rounded mb-2 last:mb-0"
-        >
+      {isLoading ? (
+        <Skeleton className="h-20 w-full bg-[#1B3A4B]/50" />
+      ) : event && (
+        <div className="relative bg-[#1B3A4B] p-2 rounded mb-2 last:mb-0">
           <div className="text-white">
             {event.title && (
               <div className="font-medium mb-1">

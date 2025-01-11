@@ -6,16 +6,24 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface CalendarGridProps {
   days: Date[];
   currentDate: Date;
-  events?: Event[];
+  events: Event[];
+  isLoading?: boolean;
   onSelectDate: (date: Date) => void;
 }
 
-export const CalendarGrid = ({ days, currentDate, events = [], onSelectDate }: CalendarGridProps) => {
+export const CalendarGrid = ({ 
+  days, 
+  currentDate, 
+  events = [], 
+  isLoading = false,
+  onSelectDate 
+}: CalendarGridProps) => {
   const isMobile = useIsMobile();
   const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
   const getEventForDate = (date: Date): Event | undefined => {
-    return events?.find(event => 
+    if (!events) return undefined;
+    return events.find(event => 
       format(new Date(event.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
     );
   };
@@ -46,6 +54,7 @@ export const CalendarGrid = ({ days, currentDate, events = [], onSelectDate }: C
           currentDate={currentDate}
           event={getEventForDate(date)}
           onSelect={onSelectDate}
+          isLoading={isLoading}
         />
       ))}
     </div>

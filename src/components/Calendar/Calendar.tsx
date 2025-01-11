@@ -24,7 +24,7 @@ export const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const queryClient = useQueryClient();
-  const { events, isLoading } = useCalendarData();
+  const { events = [], isLoading } = useCalendarData();
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -33,6 +33,7 @@ export const Calendar = () => {
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Calendar synced successfully!');
     } catch (error) {
+      console.error('Sync error:', error);
       toast.error('Failed to sync calendar. Please try again.');
     } finally {
       setIsSyncing(false);
@@ -53,7 +54,7 @@ export const Calendar = () => {
           />
           <Button 
             onClick={handleSync}
-            disabled={isSyncing}
+            disabled={isSyncing || isLoading}
             className="bg-green-500 hover:bg-green-600"
           >
             {isSyncing ? 'Syncing...' : 'Sync Calendar'}
@@ -65,6 +66,7 @@ export const Calendar = () => {
           currentDate={currentDate}
           events={events}
           onSelectDate={setSelectedDate}
+          isLoading={isLoading}
         />
 
         {selectedDate && (
