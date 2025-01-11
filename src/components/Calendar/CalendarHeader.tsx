@@ -23,7 +23,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       </Button>
       
       <div className="w-full flex justify-center">
-        <h1 className="text-4xl font-bold text-white">
+        <h1 className="text-4xl font-bold text-white max-w-[300px] text-center">
           {format(currentDate, 'MMMM yyyy')}
         </h1>
       </div>
@@ -31,7 +31,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       <Button
         variant="outline"
         onClick={() => onDateChange(addMonths(currentDate, 1))}
-        className="absolute right-8"
+        className="absolute right-8 translate-x-0"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
