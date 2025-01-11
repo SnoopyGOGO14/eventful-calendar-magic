@@ -51,13 +51,13 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       const promoter = row[3] || '' // Column E
       const capacity = row[4] || '' // Column F
       
-      // Get color from formatting data
-      const statusColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-
+      // Get color from formatting data for the current row
+      const rowFormat = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
+      
       console.log(`Processing row ${index + 1}:`, {
         dateStr,
         title,
-        statusColor
+        rowFormat
       });
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
@@ -77,7 +77,7 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
           room: room,
           promoter: promoter,
           capacity: capacity,
-          status: determineStatus(statusColor),
+          status: determineStatus(rowFormat),
           is_recurring: false
         }
       }
@@ -88,13 +88,16 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return null
       }
 
+      const status = determineStatus(rowFormat);
+      console.log(`Row ${index + 1} status:`, status, 'Color:', rowFormat);
+
       return {
         date: date.toISOString().split('T')[0],
         title: title,
         room: room,
         promoter: promoter,
         capacity: capacity,
-        status: determineStatus(statusColor),
+        status: status,
         is_recurring: false
       }
     })
@@ -107,23 +110,26 @@ function determineStatus(formatting: any) {
     return 'pending';
   }
 
-  console.log('Analyzing color values:', formatting);
+  console.log('Raw color values:', formatting);
 
   // Check for green (confirmed)
-  if (formatting.green > 0.8 && formatting.red < 0.2 && formatting.blue < 0.2) {
+  if (formatting.green >= 0.5 && formatting.red < 0.3) {
+    console.log('Detected green - Confirmed');
     return 'confirmed';
   }
   
   // Check for yellow/orange (pending)
-  if (formatting.red > 0.8 && formatting.green > 0.5 && formatting.blue < 0.3) {
+  if (formatting.red >= 0.5 && formatting.green >= 0.3) {
+    console.log('Detected yellow/orange - Pending');
     return 'pending';
   }
   
   // Check for red (cancelled)
-  if (formatting.red > 0.8 && formatting.green < 0.2 && formatting.blue < 0.2) {
+  if (formatting.red >= 0.5 && formatting.green < 0.3 && formatting.blue < 0.3) {
+    console.log('Detected red - Cancelled');
     return 'cancelled';
   }
 
-  // Default case
+  console.log('No specific color match, defaulting to pending');
   return 'pending';
 }
