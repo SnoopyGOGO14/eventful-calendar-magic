@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting events sync for 2025...')
+    console.log('Starting events sync...')
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -33,35 +33,24 @@ serve(async (req) => {
     const credentials = JSON.parse(credentialsStr)
     const accessToken = await getAccessToken(credentials)
 
-    console.log('Fetching data from 2025 tab...')
+    console.log('Fetching data from sheet...')
     const { values, formatting } = await fetchSheetData(spreadsheetId, accessToken)
-    console.log(`Found ${values.length} rows in 2025 tab`)
+    console.log(`Found ${values.length} rows in sheet`)
 
     const events = parseSheetRows(values, formatting)
 
-    // First, delete ALL existing events for January 1st, 2026
-    console.log('Clearing existing January 1st, 2026 events...')
+    // First, delete ALL existing events
+    console.log('Clearing ALL existing events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .eq('date', '2026-01-01')
+      .neq('id', 'dummy') // This will delete all rows
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
     }
 
-    // Then delete all other events for 2025
-    console.log('Clearing existing 2025 events...')
-    const { error: delete2025Error } = await supabase
-      .from('events')
-      .delete()
-      .gte('date', '2025-01-01')
-      .lt('date', '2025-12-32')
-
-    if (delete2025Error) {
-      throw new Error(`Error deleting 2025 events: ${delete2025Error.message}`)
-    }
-
+    // Insert new events
     console.log('Inserting new events...')
     const { error: insertError } = await supabase
       .from('events')
