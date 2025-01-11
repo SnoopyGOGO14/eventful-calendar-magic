@@ -39,16 +39,41 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 function hexToRgb(hex: string) {
-  const bigint = parseInt(hex.slice(1), 16);
+  // Remove the # if present
+  hex = hex.replace(/^#/, '');
+  
+  // Parse the hex string
+  const bigint = parseInt(hex, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  
   return {
-    red: ((bigint >> 16) & 255) / 255,
-    green: ((bigint >> 8) & 255) / 255,
-    blue: (bigint & 255) / 255,
+    red: r / 255,
+    green: g / 255,
+    blue: b / 255
   };
 }
 
-function isColorInRange(color: any, target: any, tolerance: number) {
+// Define standard colors with precise RGB values
+const TARGET_COLORS = {
+  yellow: { red: 1, green: 0.85, blue: 0 },     // Slightly adjusted yellow
+  green: { red: 0, green: 0.85, blue: 0 },      // Slightly darker green
+  red: { red: 0.85, green: 0, blue: 0 }         // Slightly darker red
+};
+
+function isColorMatch(color: any, target: any, tolerance: number = 0.2) {
   if (!color) return false;
+  
+  // Log the comparison for debugging
+  console.log('Comparing colors:', {
+    actual: color,
+    target: target,
+    redDiff: Math.abs(color.red - target.red),
+    greenDiff: Math.abs(color.green - target.green),
+    blueDiff: Math.abs(color.blue - target.blue)
+  });
+
   return (
     Math.abs(color.red - target.red) <= tolerance &&
     Math.abs(color.green - target.green) <= tolerance &&
@@ -62,16 +87,10 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     return 'pending';
   }
 
-  // If bgColor is in hex, convert it to RGB
+  // If bgColor is in hex format, convert it to RGB
   if (typeof bgColor === 'string' && bgColor.startsWith('#')) {
     bgColor = hexToRgb(bgColor);
   }
-
-  // Define standard colors
-  const YELLOW = { red: 1, green: 1, blue: 0 };
-  const GREEN = { red: 0, green: 1, blue: 0 };
-  const RED = { red: 1, green: 0, blue: 0 };
-  const TOLERANCE = 0.25; // Increased tolerance for better detection
 
   // Log exact RGB values for debugging
   console.log(`Row ${rowNumber} (${dateStr}) - RGB values:`, {
@@ -80,16 +99,18 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     blue: bgColor.blue?.toFixed(3)
   });
 
-  // Check against standard colors
-  if (isColorInRange(bgColor, YELLOW, TOLERANCE)) {
+  // Check against standard colors with detailed logging
+  if (isColorMatch(bgColor, TARGET_COLORS.yellow)) {
     console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
     return 'pending';
   }
-  if (isColorInRange(bgColor, GREEN, TOLERANCE)) {
+  
+  if (isColorMatch(bgColor, TARGET_COLORS.green)) {
     console.log(`Row ${rowNumber} (${dateStr}): GREEN detected → Confirmed`);
     return 'confirmed';
   }
-  if (isColorInRange(bgColor, RED, TOLERANCE)) {
+  
+  if (isColorMatch(bgColor, TARGET_COLORS.red)) {
     console.log(`Row ${rowNumber} (${dateStr}): RED detected → Cancelled`);
     return 'cancelled';
   }
