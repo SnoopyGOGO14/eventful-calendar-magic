@@ -39,15 +39,27 @@ serve(async (req) => {
 
     const events = parseSheetRows(values, formatting)
 
-    console.log('Clearing existing 2025 events...')
+    // First, delete ALL existing events for January 1st, 2026
+    console.log('Clearing existing January 1st, 2026 events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .gte('date', '2025-01-01')
-      .lt('date', '2026-01-01')
+      .eq('date', '2026-01-01')
 
     if (deleteError) {
       throw new Error(`Error deleting existing events: ${deleteError.message}`)
+    }
+
+    // Then delete all other events for 2025
+    console.log('Clearing existing 2025 events...')
+    const { error: delete2025Error } = await supabase
+      .from('events')
+      .delete()
+      .gte('date', '2025-01-01')
+      .lt('date', '2025-12-32')
+
+    if (delete2025Error) {
+      throw new Error(`Error deleting 2025 events: ${delete2025Error.message}`)
     }
 
     console.log('Inserting new events...')
@@ -59,10 +71,10 @@ serve(async (req) => {
       throw new Error(`Error inserting new events: ${insertError.message}`)
     }
 
-    console.log('2025 events sync completed successfully')
+    console.log('Events sync completed successfully')
     
     return new Response(
-      JSON.stringify({ success: true, message: '2025 events synced successfully' }),
+      JSON.stringify({ success: true, message: 'Events synced successfully' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
