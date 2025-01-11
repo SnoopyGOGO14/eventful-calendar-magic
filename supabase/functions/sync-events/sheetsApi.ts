@@ -49,7 +49,12 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
 
       // Get background color from formatting
       const rowFormatting = formatting[index]?.values?.[1]?.userEnteredFormat?.backgroundColor;
-      console.log(`Row ${index} formatting for ${dateStr}:`, rowFormatting);
+      console.log(`Row ${index} formatting for ${dateStr}:`, {
+        red: rowFormatting?.red,
+        green: rowFormatting?.green,
+        blue: rowFormatting?.blue,
+        raw: rowFormatting
+      });
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
       const month = new Date(`${monthName} 1, 2025`).getMonth()
@@ -79,13 +84,16 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         return null
       }
 
+      const status = determineStatus(contractStatus, rowFormatting);
+      console.log(`Date: ${dateStr}, Status determined: ${status}`);
+
       return {
         date: date.toISOString().split('T')[0],
         title: title,
         room: room,
         promoter: promoter,
         capacity: capacity,
-        status: determineStatus(contractStatus, rowFormatting),
+        status: status,
         is_recurring: false
       }
     })
@@ -93,32 +101,40 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
 }
 
 function determineStatus(contractStatus: string, formatting: any) {
-  // If there's explicit formatting, use it
-  if (formatting) {
-    // Check for green background (common Google Sheets green values)
-    if (
-      (formatting.green > 0.8) || // Bright green
-      (formatting.green > 0.6 && formatting.red < 0.3) || // Dark green
-      (formatting.green === 1 && formatting.red === 0.8509804) // Light green
-    ) {
-      console.log('Found green background, setting status to confirmed');
-      return 'confirmed';
-    }
-    
-    // Check for yellow background
-    if (formatting.red > 0.8 && formatting.green > 0.8 && formatting.blue < 0.3) {
-      console.log('Found yellow background, setting status to pending');
-      return 'pending';
-    }
-    
-    // Check for red background
-    if (formatting.red > 0.8 && formatting.green < 0.3) {
-      console.log('Found red background, setting status to cancelled');
-      return 'cancelled';
-    }
+  if (!formatting) {
+    console.log('No formatting found, falling back to contract status');
+    return contractStatus === 'yes' ? 'confirmed' : 'pending';
+  }
+
+  console.log('Analyzing color values:', {
+    red: formatting.red,
+    green: formatting.green,
+    blue: formatting.blue
+  });
+
+  // Check for green background (common Google Sheets green values)
+  if (
+    (formatting.green > 0.8) || // Bright green
+    (formatting.green > 0.6 && formatting.red < 0.3) || // Dark green
+    (formatting.green === 1 && formatting.red === 0.8509804) || // Light green
+    (formatting.green > 0.85 && formatting.red > 0.85) // Pale green
+  ) {
+    console.log('Found green background, setting status to confirmed');
+    return 'confirmed';
   }
   
-  // Fall back to the contract status text
-  console.log('No color formatting found, using contract status:', contractStatus);
+  // Check for yellow background
+  if (formatting.red > 0.8 && formatting.green > 0.8 && formatting.blue < 0.3) {
+    console.log('Found yellow background, setting status to pending');
+    return 'pending';
+  }
+  
+  // Check for red background
+  if (formatting.red > 0.8 && formatting.green < 0.3) {
+    console.log('Found red background, setting status to cancelled');
+    return 'cancelled';
+  }
+
+  console.log('No specific color match found, using contract status:', contractStatus);
   return contractStatus === 'yes' ? 'confirmed' : 'pending';
 }
