@@ -38,22 +38,22 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-// Define standard colors with more flexible ranges
+// Define more precise color ranges for better detection
 const TARGET_COLORS = {
   yellow: { 
-    red: { min: 0.9, max: 1 }, 
-    green: { min: 0.8, max: 1 }, 
+    red: { min: 0.95, max: 1 }, 
+    green: { min: 0.85, max: 1 }, 
     blue: { min: 0, max: 0.2 } 
   },
   green: { 
-    red: { min: 0, max: 0.3 }, 
-    green: { min: 0.7, max: 1 }, 
-    blue: { min: 0, max: 0.3 } 
+    red: { min: 0, max: 0.2 }, 
+    green: { min: 0.8, max: 1 }, 
+    blue: { min: 0, max: 0.2 } 
   },
   red: { 
-    red: { min: 0.7, max: 1 }, 
-    green: { min: 0, max: 0.3 }, 
-    blue: { min: 0, max: 0.3 } 
+    red: { min: 0.8, max: 1 }, 
+    green: { min: 0, max: 0.2 }, 
+    blue: { min: 0, max: 0.2 } 
   }
 };
 
@@ -75,24 +75,6 @@ function isInRange(value: number, range: { min: number, max: number }): boolean 
   return value >= range.min && value <= range.max;
 }
 
-function isColorMatch(color: any, targetRanges: any): boolean {
-  if (!color) return false;
-  
-  console.log('Color check:', {
-    color,
-    targetRanges,
-    redInRange: isInRange(color.red, targetRanges.red),
-    greenInRange: isInRange(color.green, targetRanges.green),
-    blueInRange: isInRange(color.blue, targetRanges.blue)
-  });
-
-  return (
-    isInRange(color.red, targetRanges.red) &&
-    isInRange(color.green, targetRanges.green) &&
-    isInRange(color.blue, targetRanges.blue)
-  );
-}
-
 function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string): string {
   if (!bgColor) {
     console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
@@ -104,32 +86,35 @@ function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: stri
     bgColor = hexToRgb(bgColor);
   }
 
-  // Log the exact color values
+  // Log exact color values for debugging
   console.log(`Row ${rowNumber} (${dateStr}) - Color values:`, {
     red: bgColor.red?.toFixed(3),
     green: bgColor.green?.toFixed(3),
     blue: bgColor.blue?.toFixed(3)
   });
 
-  // Check colors with detailed logging
-  if (isColorMatch(bgColor, TARGET_COLORS.yellow)) {
-    console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
-    return 'pending';
-  }
-  
-  if (isColorMatch(bgColor, TARGET_COLORS.green)) {
+  // Check for green first (confirmed)
+  if (isInRange(bgColor.red, TARGET_COLORS.green.red) &&
+      isInRange(bgColor.green, TARGET_COLORS.green.green) &&
+      isInRange(bgColor.blue, TARGET_COLORS.green.blue)) {
     console.log(`Row ${rowNumber} (${dateStr}): GREEN detected → Confirmed`);
     return 'confirmed';
   }
-  
-  if (isColorMatch(bgColor, TARGET_COLORS.red)) {
+
+  // Check for red (cancelled)
+  if (isInRange(bgColor.red, TARGET_COLORS.red.red) &&
+      isInRange(bgColor.green, TARGET_COLORS.red.green) &&
+      isInRange(bgColor.blue, TARGET_COLORS.red.blue)) {
     console.log(`Row ${rowNumber} (${dateStr}): RED detected → Cancelled`);
     return 'cancelled';
   }
 
-  // Additional check for light yellow (which might appear more white-ish)
-  if (bgColor.red > 0.9 && bgColor.green > 0.9 && bgColor.blue < 0.3) {
-    console.log(`Row ${rowNumber} (${dateStr}): Light YELLOW detected → Pending`);
+  // Check for yellow (pending) - including lighter shades
+  if ((isInRange(bgColor.red, TARGET_COLORS.yellow.red) &&
+       isInRange(bgColor.green, TARGET_COLORS.yellow.green) &&
+       isInRange(bgColor.blue, TARGET_COLORS.yellow.blue)) ||
+      (bgColor.red > 0.9 && bgColor.green > 0.9 && bgColor.blue < 0.3)) {
+    console.log(`Row ${rowNumber} (${dateStr}): YELLOW detected → Pending`);
     return 'pending';
   }
 
