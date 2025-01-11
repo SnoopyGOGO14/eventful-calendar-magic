@@ -43,6 +43,41 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
+function determineStatusFromColor(color: any) {
+  if (!color) {
+    console.log('No color data found, defaulting to pending');
+    return 'pending';
+  }
+
+  const { red = 0, green = 0, blue = 0 } = color;
+  
+  console.log('Raw color values:', { red, green, blue });
+
+  // Green detection (confirmed)
+  // Google Sheets green has high green value (>0.8) and low red/blue
+  if (green > 0.8 && red < 0.5 && blue < 0.5) {
+    console.log('Detected GREEN - Confirmed');
+    return 'confirmed';
+  }
+
+  // Red detection (cancelled)
+  // Google Sheets red has high red value (>0.8) and low green/blue
+  if (red > 0.8 && green < 0.5 && blue < 0.5) {
+    console.log('Detected RED - Cancelled');
+    return 'cancelled';
+  }
+
+  // Yellow/Orange detection (pending)
+  // Google Sheets yellow has both red and green high (>0.8) and low blue
+  if (red > 0.8 && green > 0.8 && blue < 0.5) {
+    console.log('Detected YELLOW - Pending');
+    return 'pending';
+  }
+
+  console.log('No specific color match, defaulting to pending');
+  return 'pending';
+}
+
 export function parseSheetRows(rows: string[][], formatting: any[]) {
   return rows
     .filter((row: string[], index: number) => {
@@ -78,7 +113,10 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
       
       // Get color from formatting data for Column G of the current row
       const cellFormat = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-      console.log(`Row ${index + 1} Column G color:`, cellFormat);
+      console.log(`Row ${index + 1} color data:`, cellFormat);
+      
+      const status = determineStatusFromColor(cellFormat);
+      console.log(`Row ${index + 1} determined status:`, status);
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
       const month = new Date(`${monthName} 1, 2025`).getMonth()
@@ -101,39 +139,9 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         room: room,
         promoter: promoter,
         capacity: capacity,
-        status: determineStatusFromColor(cellFormat),
+        status: status,
         is_recurring: false
       }
     })
     .filter(event => event !== null)
-}
-
-function determineStatusFromColor(color: any) {
-  if (!color) {
-    console.log('No color found, defaulting to pending');
-    return 'pending';
-  }
-
-  // Extract RGB values
-  const { red = 0, green = 0, blue = 0 } = color;
-  
-  console.log('Cell color values:', { red, green, blue });
-
-  // More lenient check for green (confirmed)
-  // Green should be present and higher than both red and blue
-  if (green > 0.2 && green > red && green > blue) {
-    console.log('Green detected - Confirmed');
-    return 'confirmed';
-  }
-  
-  // More lenient check for red (cancelled)
-  // Red should be present and higher than both green and blue
-  if (red > 0.2 && red > green && red > blue) {
-    console.log('Red detected - Cancelled');
-    return 'cancelled';
-  }
-  
-  // If neither condition is met, it's pending
-  console.log('Defaulting to pending');
-  return 'pending';
 }
