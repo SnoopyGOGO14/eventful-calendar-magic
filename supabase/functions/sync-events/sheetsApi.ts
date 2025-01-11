@@ -15,7 +15,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${await valuesResponse.text()}`);
   }
 
-  // Fetch formatting for column G specifically
+  // Fetch formatting for column G specifically, including row data
   const formattingResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
@@ -32,7 +32,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
 
-  // Detailed row analysis
+  // Detailed row analysis with line numbers
   console.log('\n=== SPREADSHEET ANALYSIS ===');
   console.log('Total rows found:', values.values ? values.values.length : 0);
   console.log('\n=== LINE BY LINE ANALYSIS ===');
@@ -41,13 +41,13 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     const lineNumber = index + 1;
     const dateValue = row[0] ? row[0].trim() : '';
     const hasDate = dateValue !== '';
-    const otherColumns = row.slice(1).map(cell => cell || '').join(' | ');
+    const color = formatting.sheets?.[0]?.data?.[0]?.rowData?.[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
     
     console.log(`Line ${lineNumber.toString().padStart(3, '0')}: ${hasDate ? '📅 HAS DATA' : '❌ BLANK   '}`);
     if (hasDate) {
       console.log(`   Date: "${dateValue}"`);
-      console.log(`   Other columns: ${otherColumns}`);
-      console.log(`   Sheet Line Number: ${lineNumber}`);
+      console.log(`   Color: ${JSON.stringify(color)}`);
+      console.log(`   Line Number: ${lineNumber}`);
     }
     console.log('   ---');
   });
@@ -64,19 +64,35 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-function determineStatusFromColor(color: any) {
-  if (!color) return 'pending';
+function determineStatusFromColor(color: any, lineNumber: number) {
+  if (!color) {
+    console.log(`Line ${lineNumber}: No color found, defaulting to pending`);
+    return 'pending';
+  }
 
   const { red = 0, green = 0, blue = 0 } = color;
+  
+  console.log(`Line ${lineNumber}: Color values - R:${red} G:${green} B:${blue}`);
   
   // Simple dominant color check
   const maxValue = Math.max(red, green, blue);
   
-  if (maxValue < 0.1) return 'pending'; // Very dark/black cell
+  if (maxValue < 0.1) {
+    console.log(`Line ${lineNumber}: Very dark/black cell, setting as pending`);
+    return 'pending';
+  }
   
   // Check which color is dominant
-  if (maxValue === green) return 'confirmed';
-  if (maxValue === red) return 'cancelled';
+  if (maxValue === green) {
+    console.log(`Line ${lineNumber}: Green dominant, setting as confirmed`);
+    return 'confirmed';
+  }
+  if (maxValue === red) {
+    console.log(`Line ${lineNumber}: Red dominant, setting as cancelled`);
+    return 'cancelled';
+  }
+  
+  console.log(`Line ${lineNumber}: No dominant color, defaulting to pending`);
   return 'pending';
 }
 
@@ -101,8 +117,9 @@ export function parseSheetRows(rows: string[][], formatting: any[]) {
         title = [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event';
       }
       
+      // Get color information for this specific row
       const cellFormat = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-      const status = determineStatusFromColor(cellFormat);
+      const status = determineStatusFromColor(cellFormat, index + 1);
 
       const [dayName, monthName, dayNum] = dateStr.trim().split(' ')
       const month = new Date(`${monthName} 1, 2025`).getMonth()
