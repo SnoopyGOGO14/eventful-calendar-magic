@@ -94,16 +94,24 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
       const status = determineStatusFromColor(bgColor, index + 1, dateStr);
 
-      const [dayName, monthName, dayNum] = dateStr.split(' ');
-      const month = new Date(`${monthName} 1, 2025`).getMonth();
-      const day = parseInt(dayNum);
-      
-      if (isNaN(month) || isNaN(day)) {
-        console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
-        return null;
-      }
+      // Handle special date formats
+      let date: Date;
+      if (dateStr.includes('NYE')) {
+        date = new Date(2025, 11, 31); // December 31st, 2025
+      } else if (dateStr.includes('NYD')) {
+        date = new Date(2025, 0, 1); // January 1st, 2025
+      } else {
+        const [dayName, monthName, dayNum] = dateStr.split(' ');
+        const month = new Date(`${monthName} 1, 2025`).getMonth();
+        const day = parseInt(dayNum);
+        
+        if (isNaN(month) || isNaN(day)) {
+          console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
+          return null;
+        }
 
-      const date = new Date(2025, month, day);
+        date = new Date(2025, month, day);
+      }
       
       // Validate date
       if (isNaN(date.getTime())) {
