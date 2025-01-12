@@ -97,7 +97,7 @@ function isColorSimilar(color1: any, hexColor2: string): boolean {
   const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
 
   // Compare with tolerance
-  const tolerance = 0.1;
+ const tolerance = 0.2;  // Increased from 0.1 for better matching
   return Math.abs(color1.red - r2) <= tolerance &&
          Math.abs(color1.green - g2) <= tolerance &&
          Math.abs(color1.blue - b2) <= tolerance;
