@@ -1,3 +1,5 @@
+import { EventStatus, SPREADSHEET_CELL_COLORS } from '../../src/types/eventStatus';
+
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
   console.log('Starting to fetch sheet data...');
   
@@ -55,100 +57,53 @@ function getRowBackgroundColor(rowFormatting: any): any {
   return null;
 }
 
-const SPREADSHEET_COLORS = {
-  WARNER_BROS_GREEN: '#00ff00',  // Shows as green "Confirmed" band in calendar
-  UKRAINIAN_YELLOW: '#ffd966',   // Shows as yellow "Pending" band in calendar
-  CANCELLED_RED: '#ff0000'       // Shows as red "Cancelled" band in calendar
-};
-
 function isColorSimilar(color1: any, hexColor2: string): boolean {
-  // Convert hex to RGB
-  const r = parseInt(hexColor2.slice(1, 3), 16) / 255;
-  const g = parseInt(hexColor2.slice(3, 5), 16) / 255;
-  const b = parseInt(hexColor2.slice(5, 7), 16) / 255;
+  // Convert hex color to RGB
+  const r2 = parseInt(hexColor2.slice(1, 3), 16) / 255;
+  const g2 = parseInt(hexColor2.slice(3, 5), 16) / 255;
+  const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
 
-  // More lenient comparison for yellow (#ffd966)
-  if (hexColor2 === '#ffd966') {
-    const isYellow = Math.abs(color1.red - 1) < 0.2 && 
-                    Math.abs(color1.green - 0.85) < 0.2 && 
-                    Math.abs(color1.blue - 0.4) < 0.2;
-    console.log('Yellow comparison:', { 
-      given: {
-        red: color1.red.toFixed(3),
-        green: color1.green.toFixed(3),
-        blue: color1.blue.toFixed(3)
-      }, 
-      expected: { 
-        red: r.toFixed(3), 
-        green: g.toFixed(3), 
-        blue: b.toFixed(3) 
-      }, 
-      isMatch: isYellow 
-    });
-    return isYellow;
-  }
+  // Calculate color difference using a simple distance formula
+  const threshold = 0.1;  // Increase for more lenient matching
+  const dr = Math.abs(color1.red - r2);
+  const dg = Math.abs(color1.green - g2);
+  const db = Math.abs(color1.blue - b2);
 
-  // Regular color comparison for other colors
-  const threshold = 0.2;  // More lenient threshold
-  const isMatch = Math.abs(color1.red - r) < threshold &&
-                 Math.abs(color1.green - g) < threshold &&
-                 Math.abs(color1.blue - b) < threshold;
-  
-  console.log(`Color comparison for ${hexColor2}:`, {
-    given: {
-      red: color1.red.toFixed(3),
-      green: color1.green.toFixed(3),
-      blue: color1.blue.toFixed(3)
-    },
-    expected: {
-      red: r.toFixed(3),
-      green: g.toFixed(3),
-      blue: b.toFixed(3)
-    },
-    isMatch
+  console.log('Color comparison:', {
+    color1: { r: color1.red, g: color1.green, b: color1.blue },
+    color2: { r: r2, g: g2, b: b2 },
+    differences: { dr, dg, db },
+    threshold
   });
-  
-  return isMatch;
+
+  return dr < threshold && dg < threshold && db < threshold;
 }
 
-function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string | null {
+function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): EventStatus | null {
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`[${dateStr}] Row ${rowNumber}: No color or white background → No status band`);
-    return null;  // No color band
+    console.log(`[${dateStr}] Row ${rowNumber}: No color or white background`);
+    return null;
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`[${dateStr}] Row ${rowNumber} - Spreadsheet cell color:`, { 
-    red: bgColor.red.toFixed(3), 
-    green: bgColor.green.toFixed(3), 
-    blue: bgColor.blue.toFixed(3),
+  console.log(`[${dateStr}] Row ${rowNumber} - Cell color:`, { 
+    red: bgColor.red, 
+    green: bgColor.green, 
+    blue: bgColor.blue,
     hex: hexColor 
   });
 
-  // GREEN cell (#00ff00) in spreadsheet = Warner Bros event
-  // Shows as green "Confirmed" band in calendar
-  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.WARNER_BROS_GREEN)) {
-    console.log(`[${dateStr}] Row ${rowNumber}: GREEN cell → "Confirmed" status (green band)`);
-    return 'confirmed';
+  // Check each spreadsheet color and return corresponding status
+  for (const [cellColor, status] of Object.entries(SPREADSHEET_CELL_COLORS)) {
+    if (isColorSimilar(bgColor, cellColor)) {
+      console.log(`[${dateStr}] Row ${rowNumber}: Matched ${cellColor} → "${status}" status`);
+      return status;
+    }
   }
 
-  // YELLOW cell (#ffd966) in spreadsheet = Ukrainian event
-  // Shows as yellow "Pending" band in calendar
-  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.UKRAINIAN_YELLOW)) {
-    console.log(`[${dateStr}] Row ${rowNumber}: YELLOW cell → "Pending" status (yellow band)`);
-    return 'pending';
-  }
-
-  // RED cell (#ff0000) in spreadsheet = Cancelled event
-  // Shows as red "Cancelled" band in calendar
-  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.CANCELLED_RED)) {
-    console.log(`[${dateStr}] Row ${rowNumber}: RED cell → "Cancelled" status (red band)`);
-    return 'cancelled';
-  }
-
-  console.log(`[${dateStr}] Row ${rowNumber}: Unrecognized cell color ${hexColor} → No status band`);
+  console.log(`[${dateStr}] Row ${rowNumber}: No match for color ${hexColor}`);
   return null;
 }
 
@@ -168,7 +123,7 @@ function createTestEvents() {
   const warnerBrosFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 0, green: 1, blue: 0 }  // GREEN cell (#00ff00)
+        backgroundColor: { red: 0, green: 1, blue: 0 }  // Green #00ff00 = Confirmed
       }
     }]
   };
@@ -176,7 +131,7 @@ function createTestEvents() {
   const ukrainianFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // YELLOW cell (#ffd966)
+        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // Yellow #ffd966 = Pending
       }
     }]
   };
@@ -184,7 +139,7 @@ function createTestEvents() {
   const cancelledFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0, blue: 0 }  // RED cell (#ff0000)
+        backgroundColor: { red: 1, green: 0, blue: 0 }  // Red #ff0000 = Cancelled
       }
     }]
   };
@@ -192,7 +147,7 @@ function createTestEvents() {
   return [
     {
       date: '2025-01-01',
-      title: 'TEST: Warner Bros (GREEN cell → green "Confirmed" band)',
+      title: 'TEST: Warner Bros (Green cell → Confirmed)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -202,7 +157,7 @@ function createTestEvents() {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Ukrainian (YELLOW cell → yellow "Pending" band)',
+      title: 'TEST: Ukrainian (Yellow cell → Pending)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -212,7 +167,7 @@ function createTestEvents() {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Cancelled (RED cell → red "Cancelled" band)',
+      title: 'TEST: Event (Red cell → Cancelled)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -322,6 +277,47 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
   return allEvents;
 }
 
+// Test function to verify color detection
+function testColorDetection() {
+  console.log('\n=== Testing Color Detection ===\n');
+  
+  // Test Warner Bros (Green)
+  const warnerFormat = {
+    values: [{
+      userEnteredFormat: {
+        backgroundColor: { red: 0, green: 1, blue: 0 }  // #00ff00
+      }
+    }]
+  };
+  console.log('Testing Warner Bros GREEN:');
+  console.log('Result:', determineStatusFromColor(warnerFormat, 1, 'TEST'));
+
+  // Test Ukrainian (Yellow)
+  const ukrainianFormat = {
+    values: [{
+      userEnteredFormat: {
+        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // #ffd966
+      }
+    }]
+  };
+  console.log('\nTesting Ukrainian YELLOW:');
+  console.log('Result:', determineStatusFromColor(ukrainianFormat, 2, 'TEST'));
+
+  // Test Cancelled (Red)
+  const cancelledFormat = {
+    values: [{
+      userEnteredFormat: {
+        backgroundColor: { red: 1, green: 0, blue: 0 }  // #ff0000
+      }
+    }]
+  };
+  console.log('\nTesting Cancelled RED:');
+  console.log('Result:', determineStatusFromColor(cancelledFormat, 3, 'TEST'));
+}
+
+// Run color detection test when module loads
+testColorDetection();
+
 // Test function to simulate January 1st event
 function testJanuaryFirst() {
   console.log('\n=== Testing January 1st, 2025 Event ===');
@@ -346,7 +342,7 @@ console.log('\n[TEST] Running January 1st test before processing events...');
 testJanuaryFirst();
 
 // Test function to simulate color detection for January 2025
-function testColorDetection() {
+function testColorDetectionForJanuary2025() {
   console.log('\n=== Testing Color Detection for January 2025 ===');
   
   const dates = [
@@ -398,4 +394,4 @@ function testColorDetection() {
 }
 
 // Run the test
-testColorDetection();
+testColorDetectionForJanuary2025();

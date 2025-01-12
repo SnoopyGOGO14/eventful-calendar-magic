@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Event } from './Calendar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EventStatus, STATUS_COLORS } from '@/types/eventStatus';
 
 interface CalendarDayProps {
   date: Date;
@@ -20,25 +21,11 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
   onSelect,
 }) => {
   const getStatusBand = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return {
-          bg: 'bg-green-500',  // Green band for Warner Bros events (green cells)
-          text: 'Confirmed'
-        };
-      case 'pending':
-        return {
-          bg: 'bg-yellow-500', // Yellow band for Ukrainian events (yellow cells)
-          text: 'Pending'
-        };
-      case 'cancelled':
-        return {
-          bg: 'bg-red-500',    // Red band for cancelled events (red cells)
-          text: 'Cancelled'
-        };
-      default:
-        return null;
-    }
+    const statusKey = status.toLowerCase() as EventStatus;
+    return {
+      bg: STATUS_COLORS[statusKey] || '',
+      text: status.charAt(0).toUpperCase() + status.slice(1)
+    };
   };
 
   // Only show scrollbar if there are multiple events that might overflow
