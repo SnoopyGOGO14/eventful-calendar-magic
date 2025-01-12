@@ -85,9 +85,10 @@ function determineStatusFromColor(rowFormatting: any): EventStatus | null {
   return SPREADSHEET_CELL_COLORS[rgb] || 'pending';
 }
 
-export function parseSheetRows(values: string[][], formatting: any[]) {
+export function parseSheetRows(values: string[][], formatting: any[] = []) {
   console.log('Starting to parse sheet rows...');
   console.log(`Number of rows: ${values?.length || 0}`);
+  console.log(`Number of formatting rows: ${formatting?.length || 0}`);
   
   if (!values || !Array.isArray(values)) {
     console.log('No valid rows found in sheet data');
@@ -106,7 +107,9 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       return null;
     }
     
-    const status = determineStatusFromColor(formatting[index]);
+    // Get formatting for this row, default to pending if not found
+    const rowFormatting = formatting[index];
+    const status = rowFormatting ? determineStatusFromColor(rowFormatting) : 'pending';
     console.log(`Row ${index + 1}: date=${date}, title=${title}, status=${status}`);
 
     return {
