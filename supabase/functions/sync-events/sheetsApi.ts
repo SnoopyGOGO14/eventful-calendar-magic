@@ -5,7 +5,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   
   // Fetch the values from columns B to I
   const valuesResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 339 - 2025'!B:I`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -21,7 +21,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   // Fetch background color formatting for the entire row
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 339 - 2025'!B:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -45,20 +45,33 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 function getRowBackgroundColor(rowFormatting: any) {
-  if (!rowFormatting?.values) return null;
+  if (!rowFormatting?.values) {
+    console.log('No row formatting values found');
+    return null;
+  }
   
   // Look through all cells in the row for a background color
-  for (const cell of rowFormatting.values) {
+  for (let i = 0; i < rowFormatting.values.length; i++) {
+    const cell = rowFormatting.values[i];
     const bgColor = cell?.userEnteredFormat?.backgroundColor;
-    if (bgColor && !(bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1)) {
-      console.log('Found non-white background color:', bgColor);
+    if (bgColor) {
+      console.log(`Found background color in column ${i}:`, bgColor);
+      // Skip white cells
+      if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
+        console.log('Skipping white cell');
+        continue;
+      }
       return bgColor;
     }
   }
+  
+  console.log('No non-white background color found in row');
   return null;
 }
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
+  if (!color1) return false;
+
   // Convert hex color to RGB
   const r2 = parseInt(hexColor2.slice(1, 3), 16) / 255;
   const g2 = parseInt(hexColor2.slice(3, 5), 16) / 255;
@@ -79,6 +92,7 @@ function isColorSimilar(color1: any, hexColor2: string): boolean {
     }
   }
 
+  const isMatch = dr < threshold && dg < threshold && db < threshold;
   console.log('Color comparison:', {
     input: {
       red: color1.red.toFixed(3),
@@ -98,10 +112,10 @@ function isColorSimilar(color1: any, hexColor2: string): boolean {
       blue: db.toFixed(3)
     },
     threshold,
-    isMatch: dr < threshold && dg < threshold && db < threshold
+    isMatch
   });
 
-  return dr < threshold && dg < threshold && db < threshold;
+  return isMatch;
 }
 
 function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): EventStatus | null {
@@ -143,13 +157,10 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
 }
 
 function rgbToHex(color: { red: number; green: number; blue: number }): string {
-  if (!color) return '#ffffff';
-  
   const toHex = (n: number) => {
-    const hex = Math.round((n || 0) * 255).toString(16);
+    const hex = Math.round(n * 255).toString(16);
     return hex.length === 1 ? '0' + hex : hex;
   };
-  
   return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
 }
 

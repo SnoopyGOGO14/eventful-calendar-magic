@@ -39,25 +39,37 @@ serve(async (req) => {
 
     const events = parseSheetRows(values, formatting)
 
-    // First, delete ALL existing events using a simple delete query
-    console.log('Clearing ALL existing events...')
+    // Log events before inserting into database
+    console.log('Events to insert:', events);
+
+    // Delete all existing events
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .gt('id', '00000000-0000-0000-0000-000000000000') // This will delete all rows
+      .neq('id', 0); // Delete all rows
 
     if (deleteError) {
-      throw new Error(`Error deleting existing events: ${deleteError.message}`)
+      console.error('Error deleting existing events:', deleteError);
+      throw new Error('Failed to delete existing events');
     }
 
     // Insert new events
-    console.log('Inserting new events...')
     const { error: insertError } = await supabase
       .from('events')
-      .insert(events)
+      .insert(events.map(event => ({
+        date: event.date,
+        title: event.title,
+        status: event.status || 'pending', // Default to pending if no status
+        is_recurring: event.is_recurring,
+        room: event.room,
+        promoter: event.promoter,
+        capacity: event.capacity,
+        _sheet_line_number: event._sheet_line_number
+      })));
 
     if (insertError) {
-      throw new Error(`Error inserting new events: ${insertError.message}`)
+      console.error('Error inserting events:', insertError);
+      throw new Error('Failed to insert events');
     }
 
     console.log('Events sync completed successfully')
