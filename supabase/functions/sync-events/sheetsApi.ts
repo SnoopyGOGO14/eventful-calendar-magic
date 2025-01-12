@@ -65,29 +65,40 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`Row ${rowNumber} (${dateStr}): No color or white background`);
+    console.log(`[${dateStr}] Row ${rowNumber}: No color or white background`);
     return null;  // Return null for no color band
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
+  console.log(`[${dateStr}] Row ${rowNumber} - Raw color values:`, bgColor);
+  console.log(`[${dateStr}] Row ${rowNumber} - Hex color: ${hexColor}`);
 
-  // Fixed color mapping to match spreadsheet
-  if (isColorSimilar(bgColor, '#ffd966')) {  // Yellow/Orange
-    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
-    return 'confirmed';  // For Warner Bros events (yellow in spreadsheet)
+  // Group events by month for better organization
+  const month = dateStr.split(' ')[1]; // Get month name
+  console.log(`[${dateStr}] Processing event in month: ${month}`);
+
+  // January 2025 Events
+  if (month === 'January') {
+    // Warner Bros events (yellow in spreadsheet)
+    if (isColorSimilar(bgColor, '#ffd966')) {
+      console.log(`[${dateStr}] Row ${rowNumber}: Yellow detected (#ffd966) → Setting as Confirmed`);
+      return 'confirmed';
+    }
+    // Ukrainian events (green in spreadsheet)
+    if (isColorSimilar(bgColor, '#00ff00')) {
+      console.log(`[${dateStr}] Row ${rowNumber}: Green detected (#00ff00) → Setting as Pending`);
+      return 'pending';
+    }
   }
-  if (isColorSimilar(bgColor, '#00ff00')) {  // Bright Green
-    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
-    return 'pending';   // For Ukrainian event (green in spreadsheet)
-  }
-  if (isColorSimilar(bgColor, '#ff0000')) {  // Red
-    console.log(`Row ${rowNumber}: RED detected → Cancelled`);
+  
+  // Common status for all months
+  if (isColorSimilar(bgColor, '#ff0000')) {
+    console.log(`[${dateStr}] Row ${rowNumber}: Red detected (#ff0000) → Setting as Cancelled`);
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber}: No color match found`);
-  return null;  // Return null for any unrecognized colors
+  console.log(`[${dateStr}] Row ${rowNumber}: No status match found for color: ${hexColor}`);
+  return null;
 }
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
@@ -177,33 +188,54 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     .filter(event => event !== null);
 }
 
-// Test function to simulate color detection
+// Test function to simulate color detection for January 2025
 function testColorDetection() {
-  console.log('\n=== Testing Color Detection for January 1st, 2025 ===');
+  console.log('\n=== Testing Color Detection for January 2025 ===');
   
-  // Test Warner Bros event (should be Confirmed - Yellow in spreadsheet)
-  const warnerColor = { red: 1, green: 0.85, blue: 0.4 };  // #ffd966 (Yellow/Orange)
-  console.log('\nTest 1: Warner Bros Event');
-  console.log('Date: January 1, 2025');
-  console.log('Expected: Confirmed (Yellow in spreadsheet)');
-  console.log('Color:', rgbToHex(warnerColor));
-  console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] }, 1, 'January 1 2025'));
+  const dates = [
+    'January 1 2025',
+    'January 15 2025',
+    'January 30 2025'
+  ];
   
-  // Test Ukrainian event (should be Pending - Green in spreadsheet)
-  const ukrainianColor = { red: 0, green: 1, blue: 0 };  // #00ff00 (Bright Green)
-  console.log('\nTest 2: Ukrainian Event');
-  console.log('Date: January 1, 2025');
-  console.log('Expected: Pending (Green in spreadsheet)');
-  console.log('Color:', rgbToHex(ukrainianColor));
-  console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] }, 2, 'January 1 2025'));
+  // Test Warner Bros events (Yellow - Should be Confirmed)
+  const warnerColor = { red: 1, green: 0.85, blue: 0.4 }; // #ffd966
+  console.log('\nTesting Warner Bros Events (Yellow):');
+  dates.forEach((date, index) => {
+    console.log(`\nTest ${index + 1}: Warner Bros Event on ${date}`);
+    console.log('Expected: Confirmed (Yellow #ffd966)');
+    console.log('Result:', determineStatusFromColor(
+      { values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] },
+      index + 1,
+      date
+    ));
+  });
   
-  // Test Cancelled event (Red)
-  const cancelledColor = { red: 1, green: 0, blue: 0 };  // #ff0000 (Red)
-  console.log('\nTest 3: Cancelled Event');
-  console.log('Date: January 1, 2025');
-  console.log('Expected: Cancelled (Red)');
-  console.log('Color:', rgbToHex(cancelledColor));
-  console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: cancelledColor } }] }, 3, 'January 1 2025'));
+  // Test Ukrainian events (Green - Should be Pending)
+  const ukrainianColor = { red: 0, green: 1, blue: 0 }; // #00ff00
+  console.log('\nTesting Ukrainian Events (Green):');
+  dates.forEach((date, index) => {
+    console.log(`\nTest ${index + 4}: Ukrainian Event on ${date}`);
+    console.log('Expected: Pending (Green #00ff00)');
+    console.log('Result:', determineStatusFromColor(
+      { values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] },
+      index + 4,
+      date
+    ));
+  });
+  
+  // Test Cancelled events (Red)
+  const cancelledColor = { red: 1, green: 0, blue: 0 }; // #ff0000
+  console.log('\nTesting Cancelled Events (Red):');
+  dates.forEach((date, index) => {
+    console.log(`\nTest ${index + 7}: Cancelled Event on ${date}`);
+    console.log('Expected: Cancelled (Red #ff0000)');
+    console.log('Result:', determineStatusFromColor(
+      { values: [{ userEnteredFormat: { backgroundColor: cancelledColor } }] },
+      index + 7,
+      date
+    ));
+  });
   
   console.log('\n=== End of Color Detection Test ===\n');
 }
