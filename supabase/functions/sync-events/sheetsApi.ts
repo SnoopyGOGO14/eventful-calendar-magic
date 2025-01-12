@@ -56,17 +56,17 @@ function getRowBackgroundColor(rowFormatting: any): any {
 }
 
 const TARGET_COLORS = {
-  green: '#34a853',  // Maps to Pending
-  yellow: '#fbbc04', // Maps to Confirmed
+  green: '#34a853',  // Maps to Confirmed
+  yellow: '#fbbc04', // Maps to Pending
   red: '#ff0000'     // Maps to Cancelled
 };
 
-function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string {
+function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string | null {
   const bgColor = getRowBackgroundColor(rowFormatting);
   
-  if (!bgColor) {
-    console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
-    return 'pending';
+  if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
+    console.log(`Row ${rowNumber} (${dateStr}): No color or white background, setting to null`);
+    return null;  // Return null for no color band
   }
 
   const hexColor = rgbToHex(bgColor);
@@ -74,20 +74,20 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
 
   // Corrected color mapping
   if (isColorSimilar(bgColor, '#34a853')) {  // Green
-    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
-    return 'pending';
+    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
+    return 'confirmed';
   }
   if (isColorSimilar(bgColor, '#fbbc04')) {  // Yellow
-    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
-    return 'confirmed';
+    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
+    return 'pending';
   }
   if (isColorSimilar(bgColor, '#ff0000')) {  // Red
     console.log(`Row ${rowNumber}: RED detected → Cancelled`);
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber}: No color match, defaulting to pending`);
-  return 'pending';
+  console.log(`Row ${rowNumber}: No color match found, setting to null`);
+  return null;  // Return null for any unrecognized colors
 }
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
