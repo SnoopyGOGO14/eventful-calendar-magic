@@ -55,10 +55,10 @@ function getRowBackgroundColor(rowFormatting: any): any {
   return null;
 }
 
-const TARGET_COLORS = {
-  green: '#34a853',  // Maps to Confirmed
-  yellow: '#fbbc04', // Maps to Pending
-  red: '#ff0000'     // Maps to Cancelled
+const SPREADSHEET_COLORS = {
+  GREEN: '#00ff00',   // Warner Bros events
+  YELLOW: '#ffd966',  // Ukrainian events
+  RED: '#ff0000'      // Cancelled events
 };
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
@@ -120,32 +120,32 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`[${dateStr}] Row ${rowNumber} - Raw color:`, { 
+  console.log(`[${dateStr}] Row ${rowNumber} - Cell color:`, { 
     red: bgColor.red.toFixed(3), 
     green: bgColor.green.toFixed(3), 
     blue: bgColor.blue.toFixed(3),
     hex: hexColor 
   });
 
-  // Warner Bros events (green in spreadsheet)
-  if (isColorSimilar(bgColor, '#00ff00')) {
-    console.log(`[${dateStr}] Row ${rowNumber}: Green detected (#00ff00) → Setting as Confirmed (Warner Bros)`);
+  // If cell is GREEN in spreadsheet → Show as CONFIRMED (green band) in calendar
+  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.GREEN)) {
+    console.log(`[${dateStr}] Row ${rowNumber}: Cell is GREEN → Calendar shows CONFIRMED (green band)`);
     return 'confirmed';
   }
 
-  // Ukrainian events (yellow in spreadsheet)
-  if (isColorSimilar(bgColor, '#ffd966')) {
-    console.log(`[${dateStr}] Row ${rowNumber}: Yellow detected (#ffd966) → Setting as Pending (Ukrainian)`);
+  // If cell is YELLOW in spreadsheet → Show as PENDING (yellow band) in calendar
+  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.YELLOW)) {
+    console.log(`[${dateStr}] Row ${rowNumber}: Cell is YELLOW → Calendar shows PENDING (yellow band)`);
     return 'pending';
   }
 
-  // Cancelled events (red)
-  if (isColorSimilar(bgColor, '#ff0000')) {
-    console.log(`[${dateStr}] Row ${rowNumber}: Red detected (#ff0000) → Setting as Cancelled`);
+  // If cell is RED in spreadsheet → Show as CANCELLED (red band) in calendar
+  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.RED)) {
+    console.log(`[${dateStr}] Row ${rowNumber}: Cell is RED → Calendar shows CANCELLED (red band)`);
     return 'cancelled';
   }
 
-  console.log(`[${dateStr}] Row ${rowNumber}: No status match found for color: ${hexColor}`);
+  console.log(`[${dateStr}] Row ${rowNumber}: Cell color ${hexColor} not recognized → No status band in calendar`);
   return null;
 }
 
@@ -161,11 +161,11 @@ function rgbToHex(color: { red: number; green: number; blue: number }): string {
 }
 
 function createTestEvents() {
-  // Create mock formatting objects with correct background colors
+  // Create mock formatting objects with correct cell colors from spreadsheet
   const warnerFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 0, green: 1, blue: 0 }  // Green #00ff00
+        backgroundColor: { red: 0, green: 1, blue: 0 }  // Green cell (#00ff00)
       }
     }]
   };
@@ -173,7 +173,7 @@ function createTestEvents() {
   const ukrainianFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // Yellow #ffd966
+        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // Yellow cell (#ffd966)
       }
     }]
   };
@@ -181,7 +181,7 @@ function createTestEvents() {
   const cancelledFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0, blue: 0 }  // Red #ff0000
+        backgroundColor: { red: 1, green: 0, blue: 0 }  // Red cell (#ff0000)
       }
     }]
   };
@@ -189,7 +189,7 @@ function createTestEvents() {
   return [
     {
       date: '2025-01-01',
-      title: 'TEST: Warner Bros (Confirmed - Green Cell)',
+      title: 'TEST: Warner Bros (Green cell → Confirmed)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -199,7 +199,7 @@ function createTestEvents() {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Ukrainian (Pending - Yellow Cell)',
+      title: 'TEST: Ukrainian (Yellow cell → Pending)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -209,7 +209,7 @@ function createTestEvents() {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Cancelled (Red Cell)',
+      title: 'TEST: Event (Red cell → Cancelled)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
