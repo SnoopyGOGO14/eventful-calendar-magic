@@ -56,9 +56,9 @@ function getRowBackgroundColor(rowFormatting: any): any {
 }
 
 const SPREADSHEET_COLORS = {
-  GREEN: '#00ff00',   // Warner Bros events
-  YELLOW: '#ffd966',  // Ukrainian events
-  RED: '#ff0000'      // Cancelled events
+  WARNER_BROS_GREEN: '#00ff00',  // Shows as green "Confirmed" band in calendar
+  UKRAINIAN_YELLOW: '#ffd966',   // Shows as yellow "Pending" band in calendar
+  CANCELLED_RED: '#ff0000'       // Shows as red "Cancelled" band in calendar
 };
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
@@ -115,37 +115,40 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`[${dateStr}] Row ${rowNumber}: No color or white background`);
-    return null;  // Return null for no color band
+    console.log(`[${dateStr}] Row ${rowNumber}: No color or white background → No status band`);
+    return null;  // No color band
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`[${dateStr}] Row ${rowNumber} - Cell color:`, { 
+  console.log(`[${dateStr}] Row ${rowNumber} - Spreadsheet cell color:`, { 
     red: bgColor.red.toFixed(3), 
     green: bgColor.green.toFixed(3), 
     blue: bgColor.blue.toFixed(3),
     hex: hexColor 
   });
 
-  // If cell is GREEN in spreadsheet → Show as CONFIRMED (green band) in calendar
-  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.GREEN)) {
-    console.log(`[${dateStr}] Row ${rowNumber}: Cell is GREEN → Calendar shows CONFIRMED (green band)`);
+  // GREEN cell (#00ff00) in spreadsheet = Warner Bros event
+  // Shows as green "Confirmed" band in calendar
+  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.WARNER_BROS_GREEN)) {
+    console.log(`[${dateStr}] Row ${rowNumber}: GREEN cell → "Confirmed" status (green band)`);
     return 'confirmed';
   }
 
-  // If cell is YELLOW in spreadsheet → Show as PENDING (yellow band) in calendar
-  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.YELLOW)) {
-    console.log(`[${dateStr}] Row ${rowNumber}: Cell is YELLOW → Calendar shows PENDING (yellow band)`);
+  // YELLOW cell (#ffd966) in spreadsheet = Ukrainian event
+  // Shows as yellow "Pending" band in calendar
+  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.UKRAINIAN_YELLOW)) {
+    console.log(`[${dateStr}] Row ${rowNumber}: YELLOW cell → "Pending" status (yellow band)`);
     return 'pending';
   }
 
-  // If cell is RED in spreadsheet → Show as CANCELLED (red band) in calendar
-  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.RED)) {
-    console.log(`[${dateStr}] Row ${rowNumber}: Cell is RED → Calendar shows CANCELLED (red band)`);
+  // RED cell (#ff0000) in spreadsheet = Cancelled event
+  // Shows as red "Cancelled" band in calendar
+  if (isColorSimilar(bgColor, SPREADSHEET_COLORS.CANCELLED_RED)) {
+    console.log(`[${dateStr}] Row ${rowNumber}: RED cell → "Cancelled" status (red band)`);
     return 'cancelled';
   }
 
-  console.log(`[${dateStr}] Row ${rowNumber}: Cell color ${hexColor} not recognized → No status band in calendar`);
+  console.log(`[${dateStr}] Row ${rowNumber}: Unrecognized cell color ${hexColor} → No status band`);
   return null;
 }
 
@@ -161,11 +164,11 @@ function rgbToHex(color: { red: number; green: number; blue: number }): string {
 }
 
 function createTestEvents() {
-  // Create mock formatting objects with correct cell colors from spreadsheet
-  const warnerFormat = {
+  // Create mock formatting objects with spreadsheet cell colors
+  const warnerBrosFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 0, green: 1, blue: 0 }  // Green cell (#00ff00)
+        backgroundColor: { red: 0, green: 1, blue: 0 }  // GREEN cell (#00ff00)
       }
     }]
   };
@@ -173,7 +176,7 @@ function createTestEvents() {
   const ukrainianFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // Yellow cell (#ffd966)
+        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // YELLOW cell (#ffd966)
       }
     }]
   };
@@ -181,7 +184,7 @@ function createTestEvents() {
   const cancelledFormat = {
     values: [{
       userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0, blue: 0 }  // Red cell (#ff0000)
+        backgroundColor: { red: 1, green: 0, blue: 0 }  // RED cell (#ff0000)
       }
     }]
   };
@@ -189,17 +192,17 @@ function createTestEvents() {
   return [
     {
       date: '2025-01-01',
-      title: 'TEST: Warner Bros (Green cell → Confirmed)',
+      title: 'TEST: Warner Bros (GREEN cell → green "Confirmed" band)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
-      status: determineStatusFromColor(warnerFormat, -1, 'January 1 2025'),
+      status: determineStatusFromColor(warnerBrosFormat, -1, 'January 1 2025'),
       is_recurring: false,
       _sheet_line_number: -1
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Ukrainian (Yellow cell → Pending)',
+      title: 'TEST: Ukrainian (YELLOW cell → yellow "Pending" band)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -209,7 +212,7 @@ function createTestEvents() {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Event (Red cell → Cancelled)',
+      title: 'TEST: Cancelled (RED cell → red "Cancelled" band)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',

@@ -23,17 +23,17 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
     switch (status.toLowerCase()) {
       case 'confirmed':
         return {
-          bg: 'bg-green-500',
+          bg: 'bg-green-500',  // Green band for Warner Bros events (green cells)
           text: 'Confirmed'
         };
       case 'pending':
         return {
-          bg: 'bg-yellow-500',
+          bg: 'bg-yellow-500', // Yellow band for Ukrainian events (yellow cells)
           text: 'Pending'
         };
       case 'cancelled':
         return {
-          bg: 'bg-red-500',
+          bg: 'bg-red-500',    // Red band for cancelled events (red cells)
           text: 'Cancelled'
         };
       default:
