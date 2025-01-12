@@ -5,7 +5,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   
   // Fetch the values from columns B to I
   const valuesResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 339 - 2025'!B:I`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -21,7 +21,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   // Fetch background color formatting for the entire row
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 339 - 2025'!B:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -170,14 +170,9 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
 
   // Process events from the sheet
   const allEvents = values.map((row, index) => {
-    if (!row[0]) {
-      console.log(`Row ${index}: Skipping - No date`);
-      return null;
-    }
-
-    const hasContent = row.slice(1, 6).some(cell => cell?.trim());
-    if (!hasContent) {
-      console.log(`Row ${index}: Skipping - No content`);
+    // Skip if no date or empty row
+    if (!row[0] || !row.some(cell => cell?.trim())) {
+      console.log(`Row ${index}: Skipping - Empty row`);
       return null;
     }
 
@@ -187,21 +182,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       return null;
     }
 
-    const columnC = row[1]?.trim() || '';
-    const room = row[2]?.trim() || '';
-    const promoter = row[3]?.trim() || '';
-    const capacity = row[4]?.trim() || '';
-    const columnG = row[5]?.trim() || '';
-
-    let title = columnC;
-    if (!title) {
-      title = [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event';
-    }
-    
-    const status = determineStatusFromColor(formatting[index], index + 1, dateStr);
-    console.log(`Status determined for row ${index}:`, status);
-
-    // Parse the date string
+    // Parse the date string first to validate it
     const parts = dateStr.split(' ');
     if (parts.length < 3) {
       console.log(`Row ${index}: Invalid date format: "${dateStr}"`);
@@ -210,7 +191,6 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     
     const monthName = parts[1];
     const dayNum = parseInt(parts[2]);
-    
     const month = new Date(`${monthName} 1, 2025`).getMonth();
     
     if (isNaN(month) || isNaN(dayNum)) {
@@ -218,6 +198,27 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       return null;
     }
 
+    // Get status from background color
+    const status = determineStatusFromColor(formatting[index], index + 1, dateStr);
+    if (!status) {
+      console.log(`Row ${index}: Skipping - No valid status color found`);
+      return null;
+    }
+
+    // Extract event details
+    const columnC = row[1]?.trim() || '';
+    const room = row[2]?.trim() || '';
+    const promoter = row[3]?.trim() || '';
+    const capacity = row[4]?.trim() || '';
+    const columnG = row[5]?.trim() || '';
+
+    // Skip if no meaningful content
+    if (!columnC && !room && !promoter && !capacity && !columnG) {
+      console.log(`Row ${index}: Skipping - No event details`);
+      return null;
+    }
+
+    // Update year if month rolls over
     if (month < lastMonth) {
       currentYear++;
     }
@@ -226,7 +227,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     const date = new Date(currentYear, month, dayNum);
     const event = {
       date: date.toISOString().split('T')[0],
-      title,
+      title: columnC || [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event',
       room,
       promoter,
       capacity,
@@ -240,6 +241,6 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
   })
   .filter(event => event !== null);
 
-  console.log('Total events:', allEvents.length);
+  console.log('Total valid events:', allEvents.length);
   return allEvents;
 }
