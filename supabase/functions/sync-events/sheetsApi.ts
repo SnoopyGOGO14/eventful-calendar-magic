@@ -65,20 +65,19 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`Row ${rowNumber} (${dateStr}): No color or white background, setting to null`);
+    console.log(`Row ${rowNumber} (${dateStr}): No color or white background`);
     return null;  // Return null for no color band
   }
 
   const hexColor = rgbToHex(bgColor);
   console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
 
-  // Corrected color mapping
-  if (isColorSimilar(bgColor, '#34a853')) {  // Green
-    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
+  if (isColorSimilar(bgColor, '#fbbc04')) {  // Yellow
+    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
     return 'confirmed';
   }
-  if (isColorSimilar(bgColor, '#fbbc04')) {  // Yellow
-    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
+  if (isColorSimilar(bgColor, '#34a853')) {  // Green
+    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
     return 'pending';
   }
   if (isColorSimilar(bgColor, '#ff0000')) {  // Red
@@ -86,7 +85,7 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber}: No color match found, setting to null`);
+  console.log(`Row ${rowNumber}: No color match found`);
   return null;  // Return null for any unrecognized colors
 }
 
@@ -176,3 +175,31 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     })
     .filter(event => event !== null);
 }
+
+// Test function to simulate color detection
+function testColorDetection() {
+  console.log('=== Testing Color Detection ===');
+  
+  // Test Warner Bros event (should be Confirmed)
+  const warnerColor = { red: 1, green: 0.85, blue: 0.4 };  // #ffd966
+  console.log('\nTesting Warner Bros color (Yellow/Orange):');
+  console.log('Color:', rgbToHex(warnerColor));
+  console.log('Status:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] }, 1, '2025-01-01'));
+  
+  // Test Ukrainian event (should be Pending)
+  const ukrainianColor = { red: 0, green: 1, blue: 0 };  // #00ff00
+  console.log('\nTesting Ukrainian event color (Bright Green):');
+  console.log('Color:', rgbToHex(ukrainianColor));
+  console.log('Status:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] }, 2, '2025-01-01'));
+  
+  // Test Cancelled event
+  const cancelledColor = { red: 1, green: 0, blue: 0 };  // #ff0000
+  console.log('\nTesting Cancelled color (Red):');
+  console.log('Color:', rgbToHex(cancelledColor));
+  console.log('Status:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: cancelledColor } }] }, 3, '2025-01-01'));
+  
+  console.log('\n=== End of Color Detection Test ===');
+}
+
+// Run the test
+testColorDetection();
