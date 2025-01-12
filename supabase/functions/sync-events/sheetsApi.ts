@@ -179,27 +179,33 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
 
 // Test function to simulate color detection
 function testColorDetection() {
-  console.log('=== Testing Color Detection ===');
+  console.log('\n=== Testing Color Detection for January 1st, 2025 ===');
   
-  // Test Warner Bros event (should be Confirmed)
-  const warnerColor = { red: 1, green: 0.85, blue: 0.4 };  // #ffd966
-  console.log('\nTesting Warner Bros color (Yellow/Orange):');
+  // Test Warner Bros event (should be Confirmed - Green)
+  const warnerColor = { red: 0, green: 1, blue: 0 };  // #00ff00 (Bright Green)
+  console.log('\nTest 1: Warner Bros Event');
+  console.log('Date: January 1, 2025');
+  console.log('Expected: Confirmed (Green)');
   console.log('Color:', rgbToHex(warnerColor));
-  console.log('Status:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] }, 1, '2025-01-01'));
+  console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] }, 1, 'January 1 2025'));
   
-  // Test Ukrainian event (should be Pending)
-  const ukrainianColor = { red: 0, green: 1, blue: 0 };  // #00ff00
-  console.log('\nTesting Ukrainian event color (Bright Green):');
+  // Test Ukrainian event (should be Pending - Yellow)
+  const ukrainianColor = { red: 1, green: 0.85, blue: 0.4 };  // #ffd966 (Yellow/Orange)
+  console.log('\nTest 2: Ukrainian Event');
+  console.log('Date: January 1, 2025');
+  console.log('Expected: Pending (Yellow)');
   console.log('Color:', rgbToHex(ukrainianColor));
-  console.log('Status:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] }, 2, '2025-01-01'));
+  console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] }, 2, 'January 1 2025'));
   
-  // Test Cancelled event
-  const cancelledColor = { red: 1, green: 0, blue: 0 };  // #ff0000
-  console.log('\nTesting Cancelled color (Red):');
+  // Test Cancelled event (Red)
+  const cancelledColor = { red: 1, green: 0, blue: 0 };  // #ff0000 (Red)
+  console.log('\nTest 3: Cancelled Event');
+  console.log('Date: January 1, 2025');
+  console.log('Expected: Cancelled (Red)');
   console.log('Color:', rgbToHex(cancelledColor));
-  console.log('Status:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: cancelledColor } }] }, 3, '2025-01-01'));
+  console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: cancelledColor } }] }, 3, 'January 1 2025'));
   
-  console.log('\n=== End of Color Detection Test ===');
+  console.log('\n=== End of Color Detection Test ===\n');
 }
 
 // Run the test
