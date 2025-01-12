@@ -65,14 +65,13 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`Row ${rowNumber} (${dateStr}): No color or white background, RGB values:`, bgColor);
+    console.log(`Row ${rowNumber} (${dateStr}): No color or white background`);
     return null;  // Return null for no color band
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`Row ${rowNumber} (${dateStr}) - Raw RGB:`, bgColor, `Hex: ${hexColor}`);
+  console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
 
-  // Fixed reversed color mapping
   if (isColorSimilar(bgColor, '#ffd966')) {  // Yellow/Orange
     console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
     return 'confirmed';  // For Warner Bros events
@@ -86,11 +85,7 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber}: No color match found. Closest matches:`, {
-    yellow: isColorSimilarWithValue(bgColor, '#ffd966'),
-    green: isColorSimilarWithValue(bgColor, '#00ff00'),
-    red: isColorSimilarWithValue(bgColor, '#ff0000')
-  });
+  console.log(`Row ${rowNumber}: No color match found`);
   return null;  // Return null for any unrecognized colors
 }
 
@@ -101,7 +96,7 @@ function isColorSimilar(color1: any, hexColor2: string): boolean {
   const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
 
   // Compare with tolerance
- const tolerance = 0.2;  // Increased from 0.1 for better matching
+  const tolerance = 0.2;  // Increased from 0.1 for better matching
   return Math.abs(color1.red - r2) <= tolerance &&
          Math.abs(color1.green - g2) <= tolerance &&
          Math.abs(color1.blue - b2) <= tolerance;
