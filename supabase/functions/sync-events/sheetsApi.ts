@@ -50,23 +50,21 @@ function getRowBackgroundColor(rowFormatting: any) {
     return null;
   }
   
-  // Look through all cells in the row for a background color
-  for (let i = 0; i < rowFormatting.values.length; i++) {
-    const cell = rowFormatting.values[i];
-    const bgColor = cell?.userEnteredFormat?.backgroundColor;
-    if (bgColor) {
-      console.log(`Found background color in column ${i}:`, bgColor);
-      // Skip white cells
-      if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-        console.log('Skipping white cell');
-        continue;
-      }
-      return bgColor;
-    }
+  // Look specifically at column G (index 5 since we start from B)
+  const columnGFormatting = rowFormatting.values[5];
+  if (!columnGFormatting?.userEnteredFormat?.backgroundColor) {
+    console.log('No background color in column G');
+    return null;
   }
-  
-  console.log('No non-white background color found in row');
-  return null;
+
+  const bgColor = columnGFormatting.userEnteredFormat.backgroundColor;
+  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
+    console.log('Skipping white cell in column G');
+    return null;
+  }
+
+  console.log('Found background color in column G:', bgColor);
+  return bgColor;
 }
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
@@ -122,12 +120,12 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor) {
-    console.log(`[${dateStr}] Row ${rowNumber}: No background color found`);
+    console.log(`[${dateStr}] Row ${rowNumber}: No background color found in column G`);
     return null;
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`[${dateStr}] Row ${rowNumber} - Detected cell color:`, { 
+  console.log(`[${dateStr}] Row ${rowNumber} - Detected column G color:`, { 
     red: bgColor.red.toFixed(3), 
     green: bgColor.green.toFixed(3), 
     blue: bgColor.blue.toFixed(3),
@@ -136,23 +134,23 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
 
   // First check Warner Bros (Green) - Most important
   if (bgColor.green > 0.7 && bgColor.red < 0.3 && bgColor.blue < 0.3) {
-    console.log(`✅ [${dateStr}] Row ${rowNumber}: GREEN detected → Setting as "confirmed"`);
+    console.log(`✅ [${dateStr}] Row ${rowNumber}: GREEN detected in column G → Setting as "confirmed"`);
     return 'confirmed';
   }
 
   // Then check Ukrainian (Yellow)
   if (isColorSimilar(bgColor, '#ffd966')) {
-    console.log(`✅ [${dateStr}] Row ${rowNumber}: YELLOW match → Setting as "pending"`);
+    console.log(`✅ [${dateStr}] Row ${rowNumber}: YELLOW match in column G → Setting as "pending"`);
     return 'pending';
   }
 
   // Finally check Cancelled (Red)
   if (isColorSimilar(bgColor, '#ff0000')) {
-    console.log(`✅ [${dateStr}] Row ${rowNumber}: RED match → Setting as "cancelled"`);
+    console.log(`✅ [${dateStr}] Row ${rowNumber}: RED match in column G → Setting as "cancelled"`);
     return 'cancelled';
   }
 
-  console.log(`❌ [${dateStr}] Row ${rowNumber}: NO MATCH for color ${hexColor}`);
+  console.log(`❌ [${dateStr}] Row ${rowNumber}: NO MATCH for color ${hexColor} in column G`);
   return null;
 }
 
