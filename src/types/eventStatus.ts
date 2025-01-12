@@ -12,7 +12,7 @@ export const STATUS_COLORS = {
 // Single source of truth for spreadsheet colors
 export const SPREADSHEET_CELL_COLORS = {
   // Cell color -> Status word
-  'rgb(0,255,0)': 'confirmed',    // Pure green
-  'rgb(255,217,102)': 'pending',  // Google Sheets yellow
-  'rgb(255,0,0)': 'cancelled'     // Pure red
+  'rgb(67,160,71)': 'confirmed',    // Google Sheets green
+  'rgb(255,217,102)': 'pending',    // Google Sheets yellow
+  'rgb(244,67,54)': 'cancelled'     // Google Sheets red
 } as const;
