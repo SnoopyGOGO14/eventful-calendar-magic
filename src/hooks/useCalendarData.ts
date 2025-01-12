@@ -4,16 +4,21 @@ import { useQuery } from '@tanstack/react-query';
 
 export const useCalendarData = () => {
   const fetchEvents = async () => {
+    console.log('Fetching events from database...');
+    
     const { data, error } = await supabase
       .from('events')
-      .select('*');
+      .select('*')
+      .order('date', { ascending: true });
 
     if (error) {
       console.error('Error fetching events:', error);
       throw error;
     }
 
-    return (data || []).map(item => ({
+    console.log(`Found ${data?.length || 0} events in database`);
+    
+    const events = (data || []).map(item => ({
       date: item.date,
       title: item.title,
       status: (item.status as "confirmed" | "pending" | "cancelled") || "pending",
@@ -22,12 +27,17 @@ export const useCalendarData = () => {
       promoter: item.promoter,
       capacity: item.capacity
     }));
+
+    console.log('Processed events:', events);
+    return events;
   };
 
   const { data: events, isLoading, error } = useQuery({
     queryKey: ['events'],
     queryFn: fetchEvents,
     initialData: [], // Provide empty array as initial data
+    staleTime: 0, // Consider data immediately stale to force refresh after sync
+    cacheTime: 0, // Don't cache data between refreshes
   });
 
   return { events, isLoading, error };

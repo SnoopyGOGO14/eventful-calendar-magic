@@ -42,24 +42,29 @@ serve(async (req) => {
     // Log events before inserting into database
     console.log('Events to insert:', events);
 
-    // Delete all existing events
+    console.log('Starting to clear existing events...');
+    
+    // First, delete ALL existing events using a simple delete query
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .neq('id', 0); // Delete all rows
+      .not('id', 'is', null); // This will delete ALL rows
 
     if (deleteError) {
       console.error('Error deleting existing events:', deleteError);
       throw new Error('Failed to delete existing events');
     }
 
+    console.log('Successfully cleared existing events');
+
     // Insert new events
+    console.log(`Inserting ${events.length} new events...`);
     const { error: insertError } = await supabase
       .from('events')
       .insert(events.map(event => ({
         date: event.date,
         title: event.title,
-        status: event.status || 'pending', // Default to pending if no status
+        status: event.status || 'pending',
         is_recurring: event.is_recurring,
         room: event.room,
         promoter: event.promoter,
@@ -71,6 +76,8 @@ serve(async (req) => {
       console.error('Error inserting events:', insertError);
       throw new Error('Failed to insert events');
     }
+
+    console.log('Successfully inserted new events');
 
     console.log('Events sync completed successfully')
     
