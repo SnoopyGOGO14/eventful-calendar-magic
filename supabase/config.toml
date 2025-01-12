@@ -67,5 +67,6 @@ redirect_uri = ""
 # or any other third-party OIDC providers.
 url = ""
 
-[[functions]]
-name = "sync-events"
+[functions]
+[functions.sync-events]
+verify_jwt = false
