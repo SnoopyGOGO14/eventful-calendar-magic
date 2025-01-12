@@ -78,20 +78,36 @@ function getRowBackgroundColor(rowFormatting: any) {
 
 function determineStatusFromColor(rowFormatting: any): EventStatus | null {
   const bgColor = getRowBackgroundColor(rowFormatting);
-  if (!bgColor) return null;
+  if (!bgColor) return 'pending';  // Default to pending if no color found
   
   // Convert to RGB string format
   const rgb = `rgb(${Math.round(bgColor.red * 255)},${Math.round(bgColor.green * 255)},${Math.round(bgColor.blue * 255)})`;
-  return SPREADSHEET_CELL_COLORS[rgb] || null;
+  return SPREADSHEET_CELL_COLORS[rgb] || 'pending';
 }
 
 export function parseSheetRows(values: string[][], formatting: any[]) {
+  console.log('Starting to parse sheet rows...');
+  console.log(`Number of rows: ${values?.length || 0}`);
+  
+  if (!values || !Array.isArray(values)) {
+    console.log('No valid rows found in sheet data');
+    return [];
+  }
+
   return values.map((row, index) => {
+    if (!row || row.length < 1) {
+      console.log(`Skipping empty row at index ${index}`);
+      return null;
+    }
+
     const [date, title, room, promoter, capacity] = row;
-    if (!date || !title || date === 'DATE') return null;
+    if (!date || !title || date === 'DATE') {
+      console.log(`Skipping invalid row at index ${index}: missing date or title`);
+      return null;
+    }
     
     const status = determineStatusFromColor(formatting[index]);
-    if (!status) return null;
+    console.log(`Row ${index + 1}: date=${date}, title=${title}, status=${status}`);
 
     return {
       date,
