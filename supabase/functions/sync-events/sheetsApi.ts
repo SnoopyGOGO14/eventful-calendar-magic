@@ -67,20 +67,48 @@ function isColorSimilar(color1: any, hexColor2: string): boolean {
   const g = parseInt(hexColor2.slice(3, 5), 16) / 255;
   const b = parseInt(hexColor2.slice(5, 7), 16) / 255;
 
-  // Exact match for yellow (#ffd966)
+  // More lenient comparison for yellow (#ffd966)
   if (hexColor2 === '#ffd966') {
-    const isYellow = Math.abs(color1.red - 1) < 0.1 && 
-                    Math.abs(color1.green - 0.85) < 0.1 && 
-                    Math.abs(color1.blue - 0.4) < 0.1;
-    console.log('Yellow comparison:', { given: color1, expected: { r, g, b }, isMatch: isYellow });
+    const isYellow = Math.abs(color1.red - 1) < 0.2 && 
+                    Math.abs(color1.green - 0.85) < 0.2 && 
+                    Math.abs(color1.blue - 0.4) < 0.2;
+    console.log('Yellow comparison:', { 
+      given: {
+        red: color1.red.toFixed(3),
+        green: color1.green.toFixed(3),
+        blue: color1.blue.toFixed(3)
+      }, 
+      expected: { 
+        red: r.toFixed(3), 
+        green: g.toFixed(3), 
+        blue: b.toFixed(3) 
+      }, 
+      isMatch: isYellow 
+    });
     return isYellow;
   }
 
   // Regular color comparison for other colors
-  const threshold = 0.1;
-  return Math.abs(color1.red - r) < threshold &&
-         Math.abs(color1.green - g) < threshold &&
-         Math.abs(color1.blue - b) < threshold;
+  const threshold = 0.2;  // More lenient threshold
+  const isMatch = Math.abs(color1.red - r) < threshold &&
+                 Math.abs(color1.green - g) < threshold &&
+                 Math.abs(color1.blue - b) < threshold;
+  
+  console.log(`Color comparison for ${hexColor2}:`, {
+    given: {
+      red: color1.red.toFixed(3),
+      green: color1.green.toFixed(3),
+      blue: color1.blue.toFixed(3)
+    },
+    expected: {
+      red: r.toFixed(3),
+      green: g.toFixed(3),
+      blue: b.toFixed(3)
+    },
+    isMatch
+  });
+  
+  return isMatch;
 }
 
 function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string | null {
@@ -99,27 +127,19 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
     hex: hexColor 
   });
 
-  // January 2025 Events
-  if (dateStr.includes('January')) {
-    // Test for January 1st specifically
-    if (dateStr === 'January 1 2025') {
-      console.log('[TEST] Processing January 1st event');
-    }
-
-    // Warner Bros events (yellow in spreadsheet)
-    if (isColorSimilar(bgColor, '#ffd966')) {
-      console.log(`[${dateStr}] Row ${rowNumber}: Yellow detected (#ffd966) → Setting as Confirmed`);
-      return 'confirmed';
-    }
-    
-    // Ukrainian events (green in spreadsheet)
-    if (isColorSimilar(bgColor, '#00ff00')) {
-      console.log(`[${dateStr}] Row ${rowNumber}: Green detected (#00ff00) → Setting as Pending`);
-      return 'pending';
-    }
+  // Warner Bros events (green in spreadsheet)
+  if (isColorSimilar(bgColor, '#00ff00') || isColorSimilar(bgColor, '#34a853')) {
+    console.log(`[${dateStr}] Row ${rowNumber}: Green detected (#00ff00) → Setting as Confirmed (Warner Bros)`);
+    return 'confirmed';
   }
-  
-  // Common status for all months
+
+  // Ukrainian events (yellow in spreadsheet)
+  if (isColorSimilar(bgColor, '#ffd966')) {
+    console.log(`[${dateStr}] Row ${rowNumber}: Yellow detected (#ffd966) → Setting as Pending (Ukrainian)`);
+    return 'pending';
+  }
+
+  // Cancelled events (red)
   if (isColorSimilar(bgColor, '#ff0000')) {
     console.log(`[${dateStr}] Row ${rowNumber}: Red detected (#ff0000) → Setting as Cancelled`);
     return 'cancelled';
@@ -150,7 +170,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
   const testEvents = [
     {
       date: '2025-01-01',
-      title: 'TEST: Warner Bros (Yellow)',
+      title: 'TEST: Warner Bros (Green)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -160,7 +180,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Ukrainian (Green)',
+      title: 'TEST: Ukrainian (Yellow)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -275,11 +295,11 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
 function testJanuaryFirst() {
   console.log('\n=== Testing January 1st, 2025 Event ===');
   
-  // Test Warner Bros event (Yellow - Should be Confirmed)
-  const warnerColor = { red: 1, green: 0.85, blue: 0.4 }; // #ffd966
+  // Test Warner Bros event (Green - Should be Confirmed)
+  const warnerColor = { red: 0, green: 1, blue: 0 }; // #00ff00
   console.log('\nTesting Warner Bros Event:');
   console.log('Date: January 1 2025');
-  console.log('Expected: Confirmed (Yellow #ffd966)');
+  console.log('Expected: Confirmed (Green #00ff00)');
   console.log('Color:', rgbToHex(warnerColor));
   const result = determineStatusFromColor(
     { values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] },
@@ -304,12 +324,12 @@ function testColorDetection() {
     'January 30 2025'
   ];
   
-  // Test Warner Bros events (Yellow - Should be Confirmed)
-  const warnerColor = { red: 1, green: 0.85, blue: 0.4 }; // #ffd966
-  console.log('\nTesting Warner Bros Events (Yellow):');
+  // Test Warner Bros events (Green - Should be Confirmed)
+  const warnerColor = { red: 0, green: 1, blue: 0 }; // #00ff00
+  console.log('\nTesting Warner Bros Events (Green):');
   dates.forEach((date, index) => {
     console.log(`\nTest ${index + 1}: Warner Bros Event on ${date}`);
-    console.log('Expected: Confirmed (Yellow #ffd966)');
+    console.log('Expected: Confirmed (Green #00ff00)');
     console.log('Result:', determineStatusFromColor(
       { values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] },
       index + 1,
@@ -317,12 +337,12 @@ function testColorDetection() {
     ));
   });
   
-  // Test Ukrainian events (Green - Should be Pending)
-  const ukrainianColor = { red: 0, green: 1, blue: 0 }; // #00ff00
-  console.log('\nTesting Ukrainian Events (Green):');
+  // Test Ukrainian events (Yellow - Should be Pending)
+  const ukrainianColor = { red: 1, green: 0.85, blue: 0.4 }; // #ffd966
+  console.log('\nTesting Ukrainian Events (Yellow):');
   dates.forEach((date, index) => {
     console.log(`\nTest ${index + 4}: Ukrainian Event on ${date}`);
-    console.log('Expected: Pending (Green #00ff00)');
+    console.log('Expected: Pending (Yellow #ffd966)');
     console.log('Result:', determineStatusFromColor(
       { values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] },
       index + 4,
