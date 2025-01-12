@@ -35,9 +35,9 @@ export const useCalendarData = () => {
   const { data: events, isLoading, error } = useQuery({
     queryKey: ['events'],
     queryFn: fetchEvents,
-    initialData: [], // Provide empty array as initial data
+    initialData: [] as Event[], // Properly type the initial data
     staleTime: 0, // Consider data immediately stale to force refresh after sync
-    cacheTime: 0, // Don't cache data between refreshes
+    gcTime: 0, // Replace cacheTime with gcTime
   });
 
   return { events, isLoading, error };

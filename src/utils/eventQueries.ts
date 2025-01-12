@@ -1,42 +1,44 @@
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+
+type EventRow = Database['public']['Tables']['events']['Row'];
 
 export async function getEventsBetweenDates(startDate: string, endDate: string) {
   const { data, error } = await supabase
-    .rpc('get_events_between_dates', {
-      start_date: startDate,
-      end_date: endDate
-    });
+    .from('events')
+    .select()
+    .gte('date', startDate)
+    .lte('date', endDate);
   
   if (error) throw error;
-  return data;
+  return data as EventRow[];
 }
 
 export async function getEventsByStatus(status: 'confirmed' | 'pending' | 'cancelled') {
   const { data, error } = await supabase
-    .rpc('get_events_by_status', {
-      event_status: status
-    });
+    .from('events')
+    .select()
+    .eq('status', status);
   
   if (error) throw error;
-  return data;
+  return data as EventRow[];
 }
 
 export async function getUpcomingEvents(daysAhead: number = 30) {
-  const { data, error } = await supabase
-    .rpc('get_upcoming_events', {
-      days_ahead: daysAhead
-    });
-  
-  if (error) throw error;
-  return data;
+  const startDate = new Date().toISOString().split('T')[0];
+  const endDate = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split('T')[0];
+    
+  return getEventsBetweenDates(startDate, endDate);
 }
 
 export async function getEventsByPromoter(promoterName: string) {
   const { data, error } = await supabase
-    .rpc('get_events_by_promoter', {
-      promoter_name: promoterName
-    });
+    .from('events')
+    .select()
+    .eq('promoter', promoterName);
   
   if (error) throw error;
-  return data;
+  return data as EventRow[];
 }

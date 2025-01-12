@@ -22,9 +22,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({ date, onClose }) => {
       const { data } = await supabase
         .from('events')
         .select('room, promoter, capacity')
-        .eq('date', formattedDate)
-        .single();
-      return data;
+        .eq('date', formattedDate);
+      return data || [];
     },
   });
 
@@ -40,11 +39,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({ date, onClose }) => {
     onClose();
   };
 
-  // Create the pre-filled event details text
-  const eventDetailsText = eventDetails
-    ? `Room: ${eventDetails.room || 'N/A'}\nPromoter: ${eventDetails.promoter || 'N/A'}\nCapacity: ${eventDetails.capacity || 'N/A'}\n\n`
-    : '';
-
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent>
@@ -54,11 +48,15 @@ export const NoteModal: React.FC<NoteModalProps> = ({ date, onClose }) => {
           </DialogTitle>
         </DialogHeader>
         <div className="mt-4">
-          {eventDetails && (
-            <div className="mb-4 p-3 bg-secondary rounded-md text-sm">
-              <div><strong>Room:</strong> {eventDetails.room || 'N/A'}</div>
-              <div><strong>Promoter:</strong> {eventDetails.promoter || 'N/A'}</div>
-              <div><strong>Capacity:</strong> {eventDetails.capacity || 'N/A'}</div>
+          {eventDetails && eventDetails.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {eventDetails.map((event, index) => (
+                <div key={index} className="p-3 bg-secondary rounded-md text-sm">
+                  <div><strong>Room:</strong> {event.room || 'N/A'}</div>
+                  <div><strong>Promoter:</strong> {event.promoter || 'N/A'}</div>
+                  <div><strong>Capacity:</strong> {event.capacity || 'N/A'}</div>
+                </div>
+              ))}
             </div>
           )}
           <Textarea
