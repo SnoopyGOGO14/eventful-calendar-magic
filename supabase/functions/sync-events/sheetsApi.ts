@@ -72,14 +72,14 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const hexColor = rgbToHex(bgColor);
   console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
 
-  // Updated color mapping
-  if (isColorSimilar(bgColor, '#00ff00')) {  // Bright Green
-    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
-    return 'confirmed';  // For Warner Bros events (green)
-  }
+  // Fixed color mapping to match spreadsheet
   if (isColorSimilar(bgColor, '#ffd966')) {  // Yellow/Orange
-    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
-    return 'pending';   // For Ukrainian event (yellow)
+    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
+    return 'confirmed';  // For Warner Bros events (yellow in spreadsheet)
+  }
+  if (isColorSimilar(bgColor, '#00ff00')) {  // Bright Green
+    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
+    return 'pending';   // For Ukrainian event (green in spreadsheet)
   }
   if (isColorSimilar(bgColor, '#ff0000')) {  // Red
     console.log(`Row ${rowNumber}: RED detected → Cancelled`);
@@ -181,19 +181,19 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
 function testColorDetection() {
   console.log('\n=== Testing Color Detection for January 1st, 2025 ===');
   
-  // Test Warner Bros event (should be Confirmed - Green)
-  const warnerColor = { red: 0, green: 1, blue: 0 };  // #00ff00 (Bright Green)
+  // Test Warner Bros event (should be Confirmed - Yellow in spreadsheet)
+  const warnerColor = { red: 1, green: 0.85, blue: 0.4 };  // #ffd966 (Yellow/Orange)
   console.log('\nTest 1: Warner Bros Event');
   console.log('Date: January 1, 2025');
-  console.log('Expected: Confirmed (Green)');
+  console.log('Expected: Confirmed (Yellow in spreadsheet)');
   console.log('Color:', rgbToHex(warnerColor));
   console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] }, 1, 'January 1 2025'));
   
-  // Test Ukrainian event (should be Pending - Yellow)
-  const ukrainianColor = { red: 1, green: 0.85, blue: 0.4 };  // #ffd966 (Yellow/Orange)
+  // Test Ukrainian event (should be Pending - Green in spreadsheet)
+  const ukrainianColor = { red: 0, green: 1, blue: 0 };  // #00ff00 (Bright Green)
   console.log('\nTest 2: Ukrainian Event');
   console.log('Date: January 1, 2025');
-  console.log('Expected: Pending (Yellow)');
+  console.log('Expected: Pending (Green in spreadsheet)');
   console.log('Color:', rgbToHex(ukrainianColor));
   console.log('Result:', determineStatusFromColor({ values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] }, 2, 'January 1 2025'));
   
