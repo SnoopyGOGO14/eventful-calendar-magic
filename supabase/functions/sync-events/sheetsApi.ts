@@ -65,27 +65,28 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`Row ${rowNumber} (${dateStr}): No color or white background`);
+    console.log(`Row ${rowNumber} (${dateStr}): No color or white background, setting to null`);
     return null;  // Return null for no color band
   }
 
   const hexColor = rgbToHex(bgColor);
   console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
 
-  if (isColorSimilar(bgColor, '#ffd966')) {  // Yellow/Orange
-    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
-    return 'confirmed';  // For Warner Bros events
+  // Corrected color mapping
+  if (isColorSimilar(bgColor, '#34a853')) {  // Green
+    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
+    return 'confirmed';
   }
-  if (isColorSimilar(bgColor, '#00ff00')) {  // Bright Green
-    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
-    return 'pending';   // For Ukrainian event
+  if (isColorSimilar(bgColor, '#fbbc04')) {  // Yellow
+    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
+    return 'pending';
   }
   if (isColorSimilar(bgColor, '#ff0000')) {  // Red
     console.log(`Row ${rowNumber}: RED detected → Cancelled`);
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber}: No color match found`);
+  console.log(`Row ${rowNumber}: No color match found, setting to null`);
   return null;  // Return null for any unrecognized colors
 }
 
