@@ -45,13 +45,17 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 function getRowBackgroundColor(rowFormatting: any) {
-  if (!rowFormatting?.values?.[1]?.userEnteredFormat?.backgroundColor) {
-    return null;
+  if (!rowFormatting?.values) return null;
+  
+  // Look through all cells in the row for a background color
+  for (const cell of rowFormatting.values) {
+    const bgColor = cell?.userEnteredFormat?.backgroundColor;
+    if (bgColor && !(bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1)) {
+      console.log('Found non-white background color:', bgColor);
+      return bgColor;
+    }
   }
-  // Get color from column C (index 1)
-  const color = rowFormatting.values[1].userEnteredFormat.backgroundColor;
-  console.log('Raw background color from column C:', color);
-  return color;
+  return null;
 }
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
@@ -61,7 +65,7 @@ function isColorSimilar(color1: any, hexColor2: string): boolean {
   const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
 
   // Calculate color difference using a simple distance formula
-  const threshold = 0.3;  // Even more lenient threshold for matching
+  const threshold = 0.3;  // More lenient threshold for matching
   const dr = Math.abs(color1.red - r2);
   const dg = Math.abs(color1.green - g2);
   const db = Math.abs(color1.blue - b2);
@@ -105,11 +109,6 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   
   if (!bgColor) {
     console.log(`[${dateStr}] Row ${rowNumber}: No background color found`);
-    return null;
-  }
-
-  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`[${dateStr}] Row ${rowNumber}: White background detected`);
     return null;
   }
 
@@ -235,53 +234,3 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
   console.log('Total events:', allEvents.length);
   return allEvents;
 }
-
-// Debug test function
-function testColorDetection() {
-  console.log('\n=== Testing Color Detection ===\n');
-  
-  const testCases = [
-    {
-      name: 'Warner Bros GREEN',
-      color: { red: 0, green: 1, blue: 0 },  // #00ff00
-      expected: 'confirmed'
-    },
-    {
-      name: 'Ukrainian YELLOW',
-      color: { red: 1, green: 0.85, blue: 0.4 },  // #ffd966
-      expected: 'pending'
-    },
-    {
-      name: 'CANCELLED RED',
-      color: { red: 1, green: 0, blue: 0 },  // #ff0000
-      expected: 'cancelled'
-    },
-    // Add some variations to test threshold
-    {
-      name: 'Slightly different green',
-      color: { red: 0.1, green: 0.9, blue: 0.1 },
-      expected: 'confirmed'
-    },
-    {
-      name: 'Slightly different yellow',
-      color: { red: 0.95, green: 0.8, blue: 0.35 },
-      expected: 'pending'
-    }
-  ];
-
-  testCases.forEach((testCase, index) => {
-    console.log(`\n--- Test Case ${index + 1}: ${testCase.name} ---`);
-    const result = determineStatusFromColor(
-      { values: [{ userEnteredFormat: { backgroundColor: testCase.color } }] },
-      index + 1,
-      'TEST'
-    );
-    console.log('Expected:', testCase.expected);
-    console.log('Got:', result);
-    console.log('Test passed:', result === testCase.expected);
-  });
-}
-
-// Run color detection test
-console.log('\n[DEBUG] Running color detection tests...');
-testColorDetection();
