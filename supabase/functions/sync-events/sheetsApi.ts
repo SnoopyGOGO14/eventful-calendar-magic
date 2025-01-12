@@ -1,66 +1,7 @@
-// Update these to match your exact spreadsheet colors
-const TARGET_COLORS = {
-  green: '#34a853',  // Confirmed
-  yellow: '#fbbc04', // Pending
-  red: '#ff0000'     // Cancelled
-};
-
-function rgbToHex(color: { red: number; green: number; blue: number }): string {
-  if (!color) return '#ffffff';
-  
-  const toHex = (n: number) => {
-    const hex = Math.round((n || 0) * 255).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-  
-  return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
-}
-
-function isCloseTo(color1: string, color2: string, tolerance: number = 30): boolean {
-  // Convert hex to RGB
-  const hex1 = color1.substring(1);
-  const hex2 = color2.substring(1);
-  const r1 = parseInt(hex1.substring(0, 2), 16);
-  const g1 = parseInt(hex1.substring(2, 4), 16);
-  const b1 = parseInt(hex1.substring(4, 6), 16);
-  const r2 = parseInt(hex2.substring(0, 2), 16);
-  const g2 = parseInt(hex2.substring(2, 4), 16);
-  const b2 = parseInt(hex2.substring(4, 6), 16);
-
-  return Math.abs(r1 - r2) <= tolerance &&
-         Math.abs(g1 - g2) <= tolerance &&
-         Math.abs(b1 - b2) <= tolerance;
-}
-
-function determineStatusFromColor(bgColor: any, rowNumber: number, dateStr: string): string {
-  if (!bgColor) {
-    console.log(`Row ${rowNumber}: No color found, defaulting to pending`);
-    return 'pending';
-  }
-
-  const hexColor = rgbToHex(bgColor);
-  console.log(`Row ${rowNumber} - Color detected: ${hexColor}`);
-  
-  if (isCloseTo(hexColor, TARGET_COLORS.green)) {
-    console.log(`Row ${rowNumber}: Matched GREEN → Confirmed`);
-    return 'confirmed';
-  }
-  if (isCloseTo(hexColor, TARGET_COLORS.yellow)) {
-    console.log(`Row ${rowNumber}: Matched YELLOW → Pending`);
-    return 'pending';
-  }
-  if (isCloseTo(hexColor, TARGET_COLORS.red)) {
-    console.log(`Row ${rowNumber}: Matched RED → Cancelled`);
-    return 'cancelled';
-  }
-
-  console.log(`Row ${rowNumber}: No match found for ${hexColor}, defaulting to pending`);
-  return 'pending';
-}
-
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
   console.log('Starting to fetch sheet data...');
   
+  // Fetch the values from columns B to I
   const valuesResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:I`,
     {
@@ -76,8 +17,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${errorText}`);
   }
 
+  // Fetch background color formatting for the entire row
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:I&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -94,17 +36,88 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
   
-  console.log('Raw formatting response:', JSON.stringify(formatting, null, 2));
-
   return {
     values: values.values || [],
     formatting: formatting.sheets?.[0]?.data?.[0]?.rowData || [],
   };
 }
 
+// Update color detection to look at any cell in the row
+function getRowBackgroundColor(rowFormatting: any): any {
+  if (!rowFormatting?.values) return null;
+  
+  // Look through all cells in the row for a background color
+  for (const cell of rowFormatting.values) {
+    const bgColor = cell?.userEnteredFormat?.backgroundColor;
+    if (bgColor) {
+      return bgColor;
+    }
+  }
+  return null;
+}
+
+const TARGET_COLORS = {
+  green: '#34a853',  // Confirmed
+  yellow: '#fbbc04', // Pending
+  red: '#ff0000'     // Cancelled
+};
+
+function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string {
+  const bgColor = getRowBackgroundColor(rowFormatting);
+  
+  if (!bgColor) {
+    console.log(`Row ${rowNumber} (${dateStr}): No background color found, defaulting to pending`);
+    return 'pending';
+  }
+
+  const hexColor = rgbToHex(bgColor);
+  console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
+
+  // More lenient color matching
+  if (isColorSimilar(bgColor, TARGET_COLORS.green)) {
+    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
+    return 'confirmed';
+  }
+  if (isColorSimilar(bgColor, TARGET_COLORS.yellow)) {
+    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
+    return 'pending';
+  }
+  if (isColorSimilar(bgColor, TARGET_COLORS.red)) {
+    console.log(`Row ${rowNumber}: RED detected → Cancelled`);
+    return 'cancelled';
+  }
+
+  console.log(`Row ${rowNumber}: No color match, defaulting to pending`);
+  return 'pending';
+}
+
+function isColorSimilar(color1: any, hexColor2: string): boolean {
+  // Convert hex color2 to RGB
+  const r2 = parseInt(hexColor2.slice(1, 3), 16) / 255;
+  const g2 = parseInt(hexColor2.slice(3, 5), 16) / 255;
+  const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
+
+  // Compare with tolerance
+  const tolerance = 0.1;
+  return Math.abs(color1.red - r2) <= tolerance &&
+         Math.abs(color1.green - g2) <= tolerance &&
+         Math.abs(color1.blue - b2) <= tolerance;
+}
+
+function rgbToHex(color: { red: number; green: number; blue: number }): string {
+  if (!color) return '#ffffff';
+  
+  const toHex = (n: number) => {
+    const hex = Math.round((n || 0) * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  
+  return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
+}
+
 export function parseSheetRows(values: string[][], formatting: any[]) {
-  let currentYear = 2024; // Start with December 2024
-  let lastMonth = 11; // December is month 11 (0-based)
+  let currentYear = 2024;
+  let lastMonth = 11;
 
   return values
     .filter((row: string[], index: number) => {
@@ -125,9 +138,9 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
         title = [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event';
       }
       
-      const bgColor = formatting[index]?.values?.[0]?.userEnteredFormat?.backgroundColor;
-      const status = determineStatusFromColor(bgColor, index + 1, dateStr);
+      const status = determineStatusFromColor(formatting[index], index + 1, dateStr);
 
+      // Parse the date string
       const parts = dateStr.split(' ');
       if (parts.length < 3) {
         console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
@@ -150,12 +163,6 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       lastMonth = month;
 
       const date = new Date(currentYear, month, dayNum);
-      console.log(`Row ${index + 1}: Event parsed for ${date.toISOString()}`);
-
-      if (isNaN(date.getTime())) {
-        console.log(`Row ${index + 1}: Could not parse date: "${dateStr}"`);
-        return null;
-      }
 
       return {
         date: date.toISOString().split('T')[0],
