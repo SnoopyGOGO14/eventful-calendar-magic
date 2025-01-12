@@ -63,11 +63,11 @@ serve(async (req) => {
     
     console.log(`Found ${currentEvents?.length || 0} existing events in database`)
 
-    console.log('Clearing ALL existing events...')
+    console.log('Clearing existing events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .not('id', 'is', null)
+      .not('id', 'is', null)  // Delete all events, no special handling for test data
 
     if (deleteError) {
       console.error('Error deleting events:', deleteError)
