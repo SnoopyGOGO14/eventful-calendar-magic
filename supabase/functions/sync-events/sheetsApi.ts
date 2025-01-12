@@ -72,13 +72,14 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const hexColor = rgbToHex(bgColor);
   console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
 
-  if (isColorSimilar(bgColor, '#fbbc04')) {  // Yellow
-    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
-    return 'confirmed';
+  // Updated color mapping
+  if (isColorSimilar(bgColor, '#00ff00')) {  // Bright Green
+    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
+    return 'confirmed';  // For Warner Bros events (green)
   }
-  if (isColorSimilar(bgColor, '#34a853')) {  // Green
-    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
-    return 'pending';
+  if (isColorSimilar(bgColor, '#ffd966')) {  // Yellow/Orange
+    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
+    return 'pending';   // For Ukrainian event (yellow)
   }
   if (isColorSimilar(bgColor, '#ff0000')) {  // Red
     console.log(`Row ${rowNumber}: RED detected → Cancelled`);
