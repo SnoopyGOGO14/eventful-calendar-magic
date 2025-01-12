@@ -56,9 +56,9 @@ function getRowBackgroundColor(rowFormatting: any): any {
 }
 
 const TARGET_COLORS = {
-  green: '#00ff00',  // Bright Green
-  yellow: '#ffd966', // Yellow/Orange
-  red: '#ff0000'     // Red
+  green: '#34a853',  // Maps to Confirmed
+  yellow: '#fbbc04', // Maps to Pending
+  red: '#ff0000'     // Maps to Cancelled
 };
 
 function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string | null {
@@ -75,11 +75,11 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   // Fixed reversed color mapping
   if (isColorSimilar(bgColor, '#ffd966')) {  // Yellow/Orange
     console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
-    return 'confirmed';  // Changed from 'pending' to 'confirmed'
+    return 'confirmed';  // For Warner Bros events
   }
   if (isColorSimilar(bgColor, '#00ff00')) {  // Bright Green
     console.log(`Row ${rowNumber}: GREEN detected → Pending`);
-    return 'pending';  // Changed from 'confirmed' to 'pending'
+    return 'pending';   // For Ukrainian event
   }
   if (isColorSimilar(bgColor, '#ff0000')) {  // Red
     console.log(`Row ${rowNumber}: RED detected → Cancelled`);
@@ -94,26 +94,14 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   return null;  // Return null for any unrecognized colors
 }
 
-function isColorSimilarWithValue(color1: any, hexColor2: string): number {
-  const r2 = parseInt(hexColor2.slice(1, 3), 16) / 255;
-  const g2 = parseInt(hexColor2.slice(3, 5), 16) / 255;
-  const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
-
-  const rDiff = Math.abs(color1.red - r2);
-  const gDiff = Math.abs(color1.green - g2);
-  const bDiff = Math.abs(color1.blue - b2);
-  
-  return Math.max(rDiff, gDiff, bDiff);
-}
-
 function isColorSimilar(color1: any, hexColor2: string): boolean {
   // Convert hex color2 to RGB
   const r2 = parseInt(hexColor2.slice(1, 3), 16) / 255;
   const g2 = parseInt(hexColor2.slice(3, 5), 16) / 255;
   const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
 
-  // Increase tolerance for better color matching
-  const tolerance = 0.2;  // Increased from 0.1 for better matching
+  // Compare with tolerance
+ const tolerance = 0.2;  // Increased from 0.1 for better matching
   return Math.abs(color1.red - r2) <= tolerance &&
          Math.abs(color1.green - g2) <= tolerance &&
          Math.abs(color1.blue - b2) <= tolerance;
