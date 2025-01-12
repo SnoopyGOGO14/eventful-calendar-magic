@@ -128,7 +128,7 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   });
 
   // Warner Bros events (green in spreadsheet)
-  if (isColorSimilar(bgColor, '#00ff00') || isColorSimilar(bgColor, '#34a853')) {
+  if (isColorSimilar(bgColor, '#00ff00')) {
     console.log(`[${dateStr}] Row ${rowNumber}: Green detected (#00ff00) → Setting as Confirmed (Warner Bros)`);
     return 'confirmed';
   }
@@ -160,21 +160,40 @@ function rgbToHex(color: { red: number; green: number; blue: number }): string {
   return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
 }
 
-export function parseSheetRows(values: string[][], formatting: any[]) {
-  console.log('Starting to parse sheet rows. Total rows:', values.length);
+function createTestEvents() {
+  // Create mock formatting objects with correct background colors
+  const warnerFormat = {
+    values: [{
+      userEnteredFormat: {
+        backgroundColor: { red: 0, green: 1, blue: 0 }  // Green #00ff00
+      }
+    }]
+  };
   
-  let currentYear = 2025;
-  let lastMonth = -1;
+  const ukrainianFormat = {
+    values: [{
+      userEnteredFormat: {
+        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // Yellow #ffd966
+      }
+    }]
+  };
+  
+  const cancelledFormat = {
+    values: [{
+      userEnteredFormat: {
+        backgroundColor: { red: 1, green: 0, blue: 0 }  // Red #ff0000
+      }
+    }]
+  };
 
-  // Add test events for January 1st
-  const testEvents = [
+  return [
     {
       date: '2025-01-01',
       title: 'TEST: Warner Bros (Confirmed - Green Cell)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
-      status: 'confirmed',
+      status: determineStatusFromColor(warnerFormat, -1, 'January 1 2025'),
       is_recurring: false,
       _sheet_line_number: -1
     },
@@ -184,7 +203,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
-      status: 'pending',
+      status: determineStatusFromColor(ukrainianFormat, -2, 'January 1 2025'),
       is_recurring: false,
       _sheet_line_number: -2
     },
@@ -194,12 +213,21 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
-      status: 'cancelled',
+      status: determineStatusFromColor(cancelledFormat, -3, 'January 1 2025'),
       is_recurring: false,
       _sheet_line_number: -3
     }
   ];
+};
 
+export function parseSheetRows(values: string[][], formatting: any[]) {
+  console.log('Starting to parse sheet rows. Total rows:', values.length);
+  
+  let currentYear = 2025;
+  let lastMonth = -1;
+
+  // Get test events with proper colors
+  const testEvents = createTestEvents();
   console.log('Added test events:', testEvents);
 
   // Process regular events from the sheet
