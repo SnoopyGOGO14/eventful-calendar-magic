@@ -170,7 +170,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
   const testEvents = [
     {
       date: '2025-01-01',
-      title: 'TEST: Warner Bros (Green)',
+      title: 'TEST: Warner Bros (Confirmed - Green Cell)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -180,7 +180,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Ukrainian (Yellow)',
+      title: 'TEST: Ukrainian (Pending - Yellow Cell)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
@@ -190,7 +190,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     },
     {
       date: '2025-01-01',
-      title: 'TEST: Cancelled (Red)',
+      title: 'TEST: Cancelled (Red Cell)',
       room: 'Test Room',
       promoter: 'Test Promoter',
       capacity: '100',
