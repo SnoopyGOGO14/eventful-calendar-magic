@@ -118,161 +118,93 @@ function rgbToHex(color: { red: number; green: number; blue: number }): string {
   return '#' + toHex(color.red) + toHex(color.green) + toHex(color.blue);
 }
 
-function createTestEvents() {
-  // Create mock formatting objects with spreadsheet cell colors
-  const warnerBrosFormat = {
-    values: [{
-      userEnteredFormat: {
-        backgroundColor: { red: 0, green: 1, blue: 0 }  // Green #00ff00 = Confirmed
-      }
-    }]
-  };
-  
-  const ukrainianFormat = {
-    values: [{
-      userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // Yellow #ffd966 = Pending
-      }
-    }]
-  };
-  
-  const cancelledFormat = {
-    values: [{
-      userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0, blue: 0 }  // Red #ff0000 = Cancelled
-      }
-    }]
-  };
-
-  return [
-    {
-      date: '2025-01-01',
-      title: 'TEST: Warner Bros (Green cell → Confirmed)',
-      room: 'Test Room',
-      promoter: 'Test Promoter',
-      capacity: '100',
-      status: determineStatusFromColor(warnerBrosFormat, -1, 'January 1 2025'),
-      is_recurring: false,
-      _sheet_line_number: -1
-    },
-    {
-      date: '2025-01-01',
-      title: 'TEST: Ukrainian (Yellow cell → Pending)',
-      room: 'Test Room',
-      promoter: 'Test Promoter',
-      capacity: '100',
-      status: determineStatusFromColor(ukrainianFormat, -2, 'January 1 2025'),
-      is_recurring: false,
-      _sheet_line_number: -2
-    },
-    {
-      date: '2025-01-01',
-      title: 'TEST: Event (Red cell → Cancelled)',
-      room: 'Test Room',
-      promoter: 'Test Promoter',
-      capacity: '100',
-      status: determineStatusFromColor(cancelledFormat, -3, 'January 1 2025'),
-      is_recurring: false,
-      _sheet_line_number: -3
-    }
-  ];
-};
-
 export function parseSheetRows(values: string[][], formatting: any[]) {
   console.log('Starting to parse sheet rows. Total rows:', values.length);
   
   let currentYear = 2025;
   let lastMonth = -1;
 
-  // Get test events with proper colors
-  const testEvents = createTestEvents();
-  console.log('Added test events:', testEvents);
-
   // Process regular events from the sheet
-  const sheetEvents = values
-    .filter((row: string[], index: number) => {
-      if (!row[0]) {
-        console.log(`Row ${index}: Skipping - No date`);
-        return false;
-      }
-      const hasContent = row.slice(1, 6).some(cell => cell?.trim());
-      if (!hasContent) {
-        console.log(`Row ${index}: Skipping - No content`);
-        return false;
-      }
-      return true;
-    })
-    .map((row: string[], index: number) => {
-      const dateStr = row[0]?.trim() || '';
-      if (!dateStr || dateStr === 'DATE') {
-        console.log(`Row ${index}: Skipping header or empty date`);
-        return null;
-      }
+  const allEvents = values.map((row, index) => {
+    if (!row[0]) {
+      console.log(`Row ${index}: Skipping - No date`);
+      return null;
+    }
+    const hasContent = row.slice(1, 6).some(cell => cell?.trim());
+    if (!hasContent) {
+      console.log(`Row ${index}: Skipping - No content`);
+      return null;
+    }
 
-      console.log(`Processing row ${index}:`, { dateStr, row });
+    console.log(`Processing row ${index}:`, { row });
 
-      const columnC = row[1]?.trim() || '';
-      const room = row[2]?.trim() || '';
-      const promoter = row[3]?.trim() || '';
-      const capacity = row[4]?.trim() || '';
-      const columnG = row[5]?.trim() || '';
+    const dateStr = row[0]?.trim() || '';
+    if (!dateStr || dateStr === 'DATE') {
+      console.log(`Row ${index}: Skipping header or empty date`);
+      return null;
+    }
 
-      let title = columnC;
-      if (!title) {
-        title = [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event';
-      }
-      
-      const status = determineStatusFromColor(formatting[index], index + 1, dateStr);
-      console.log(`Status determined for row ${index}:`, status);
+    const columnC = row[1]?.trim() || '';
+    const room = row[2]?.trim() || '';
+    const promoter = row[3]?.trim() || '';
+    const capacity = row[4]?.trim() || '';
+    const columnG = row[5]?.trim() || '';
 
-      // Parse the date string
-      const parts = dateStr.split(' ');
-      if (parts.length < 3) {
-        console.log(`Row ${index}: Invalid date format: "${dateStr}"`);
-        return null;
-      }
-      
-      const monthName = parts[1];
-      const dayNum = parseInt(parts[2]);
-      
-      const month = new Date(`${monthName} 1, 2025`).getMonth();
-      
-      if (isNaN(month) || isNaN(dayNum)) {
-        console.log(`Row ${index}: Invalid date format: "${dateStr}"`);
-        return null;
-      }
+    let title = columnC;
+    if (!title) {
+      title = [room, promoter, capacity, columnG].find(val => val !== '') || 'Untitled Event';
+    }
+    
+    const status = determineStatusFromColor(formatting[index], index + 1, dateStr);
+    console.log(`Status determined for row ${index}:`, status);
 
-      if (month < lastMonth) {
-        currentYear++;
-      }
-      lastMonth = month;
+    // Parse the date string
+    const parts = dateStr.split(' ');
+    if (parts.length < 3) {
+      console.log(`Row ${index}: Invalid date format: "${dateStr}"`);
+      return null;
+    }
+    
+    const monthName = parts[1];
+    const dayNum = parseInt(parts[2]);
+    
+    const month = new Date(`${monthName} 1, 2025`).getMonth();
+    
+    if (isNaN(month) || isNaN(dayNum)) {
+      console.log(`Row ${index}: Invalid date format: "${dateStr}"`);
+      return null;
+    }
 
-      const date = new Date(currentYear, month, dayNum);
-      const event = {
-        date: date.toISOString().split('T')[0],
-        title,
-        room,
-        promoter,
-        capacity,
-        status,
-        is_recurring: false,
-        _sheet_line_number: index + 1
-      };
+    if (month < lastMonth) {
+      currentYear++;
+    }
+    lastMonth = month;
 
-      console.log(`Created event for row ${index}:`, event);
-      return event;
-    })
-    .filter(event => {
-      if (!event) {
-        console.log('Filtering out null event');
-        return false;
-      }
-      return true;
-    });
+    const date = new Date(currentYear, month, dayNum);
+    const event = {
+      date: date.toISOString().split('T')[0],
+      title,
+      room,
+      promoter,
+      capacity,
+      status,
+      is_recurring: false,
+      _sheet_line_number: index + 1
+    };
 
-  console.log('Processed sheet events:', sheetEvents.length);
-  const allEvents = [...testEvents, ...sheetEvents];
-  console.log('Total events (including test):', allEvents.length);
+    console.log(`Created event for row ${index}:`, event);
+    return event;
+  })
+  .filter(event => {
+    if (!event) {
+      console.log('Filtering out null event');
+      return false;
+    }
+    return true;
+  });
+
+  console.log('Processed sheet events:', allEvents.length);
+  console.log('Total events:', allEvents.length);
   
   return allEvents;
 }
