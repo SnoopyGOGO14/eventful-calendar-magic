@@ -61,6 +61,28 @@ const TARGET_COLORS = {
   red: '#ff0000'     // Maps to Cancelled
 };
 
+function isColorSimilar(color1: any, hexColor2: string): boolean {
+  // Convert hex to RGB
+  const r = parseInt(hexColor2.slice(1, 3), 16) / 255;
+  const g = parseInt(hexColor2.slice(3, 5), 16) / 255;
+  const b = parseInt(hexColor2.slice(5, 7), 16) / 255;
+
+  // Exact match for yellow (#ffd966)
+  if (hexColor2 === '#ffd966') {
+    const isYellow = Math.abs(color1.red - 1) < 0.1 && 
+                    Math.abs(color1.green - 0.85) < 0.1 && 
+                    Math.abs(color1.blue - 0.4) < 0.1;
+    console.log('Yellow comparison:', { given: color1, expected: { r, g, b }, isMatch: isYellow });
+    return isYellow;
+  }
+
+  // Regular color comparison for other colors
+  const threshold = 0.1;
+  return Math.abs(color1.red - r) < threshold &&
+         Math.abs(color1.green - g) < threshold &&
+         Math.abs(color1.blue - b) < threshold;
+}
+
 function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string | null {
   const bgColor = getRowBackgroundColor(rowFormatting);
   
@@ -70,20 +92,26 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`[${dateStr}] Row ${rowNumber} - Raw color values:`, bgColor);
-  console.log(`[${dateStr}] Row ${rowNumber} - Hex color: ${hexColor}`);
-
-  // Group events by month for better organization
-  const month = dateStr.split(' ')[1]; // Get month name
-  console.log(`[${dateStr}] Processing event in month: ${month}`);
+  console.log(`[${dateStr}] Row ${rowNumber} - Raw color:`, { 
+    red: bgColor.red.toFixed(3), 
+    green: bgColor.green.toFixed(3), 
+    blue: bgColor.blue.toFixed(3),
+    hex: hexColor 
+  });
 
   // January 2025 Events
-  if (month === 'January') {
+  if (dateStr.includes('January')) {
+    // Test for January 1st specifically
+    if (dateStr === 'January 1 2025') {
+      console.log('[TEST] Processing January 1st event');
+    }
+
     // Warner Bros events (yellow in spreadsheet)
     if (isColorSimilar(bgColor, '#ffd966')) {
       console.log(`[${dateStr}] Row ${rowNumber}: Yellow detected (#ffd966) → Setting as Confirmed`);
       return 'confirmed';
     }
+    
     // Ukrainian events (green in spreadsheet)
     if (isColorSimilar(bgColor, '#00ff00')) {
       console.log(`[${dateStr}] Row ${rowNumber}: Green detected (#00ff00) → Setting as Pending`);
@@ -101,19 +129,6 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   return null;
 }
 
-function isColorSimilar(color1: any, hexColor2: string): boolean {
-  // Convert hex color2 to RGB
-  const r2 = parseInt(hexColor2.slice(1, 3), 16) / 255;
-  const g2 = parseInt(hexColor2.slice(3, 5), 16) / 255;
-  const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
-
-  // Compare with tolerance
-  const tolerance = 0.2;  // Increased from 0.1 for better matching
-  return Math.abs(color1.red - r2) <= tolerance &&
-         Math.abs(color1.green - g2) <= tolerance &&
-         Math.abs(color1.blue - b2) <= tolerance;
-}
-
 function rgbToHex(color: { red: number; green: number; blue: number }): string {
   if (!color) return '#ffffff';
   
@@ -126,17 +141,54 @@ function rgbToHex(color: { red: number; green: number; blue: number }): string {
 }
 
 export function parseSheetRows(values: string[][], formatting: any[]) {
-  let currentYear = 2024;
-  let lastMonth = 11;
+  let currentYear = 2025;
+  let lastMonth = -1;
 
-  return values
-    .filter((row: string[], index: number) => {
-      const hasDate = row[0];
-      const hasContent = row.slice(1, 6).some(cell => cell?.trim());
-      return hasDate && hasContent;
-    })
-    .map((row: string[], index: number) => {
+  // Add test events for January 1st
+  const testEvents = [
+    {
+      date: '2025-01-01',
+      title: 'TEST: Warner Bros (Yellow)',
+      room: 'Test Room',
+      promoter: 'Test Promoter',
+      capacity: '100',
+      status: 'confirmed',
+      is_recurring: false,
+      _sheet_line_number: -1,
+      backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // #ffd966
+    },
+    {
+      date: '2025-01-01',
+      title: 'TEST: Ukrainian (Green)',
+      room: 'Test Room',
+      promoter: 'Test Promoter',
+      capacity: '100',
+      status: 'pending',
+      is_recurring: false,
+      _sheet_line_number: -2,
+      backgroundColor: { red: 0, green: 1, blue: 0 }  // #00ff00
+    },
+    {
+      date: '2025-01-01',
+      title: 'TEST: Cancelled (Red)',
+      room: 'Test Room',
+      promoter: 'Test Promoter',
+      capacity: '100',
+      status: 'cancelled',
+      is_recurring: false,
+      _sheet_line_number: -3,
+      backgroundColor: { red: 1, green: 0, blue: 0 }  // #ff0000
+    }
+  ];
+
+  // Process regular events from the sheet
+  const sheetEvents = values
+    .map((row, index) => {
+      if (!row[0]) return null;  // Skip empty rows
+
       const dateStr = row[0]?.trim() || '';
+      if (!dateStr || dateStr === 'DATE') return null;
+
       const columnC = row[1]?.trim() || '';
       const room = row[2]?.trim() || '';
       const promoter = row[3]?.trim() || '';
@@ -186,7 +238,33 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       };
     })
     .filter(event => event !== null);
+
+  // For January 1st, 2025, return test events first, then regular events
+  return [...testEvents, ...sheetEvents];
 }
+
+// Test function to simulate January 1st event
+function testJanuaryFirst() {
+  console.log('\n=== Testing January 1st, 2025 Event ===');
+  
+  // Test Warner Bros event (Yellow - Should be Confirmed)
+  const warnerColor = { red: 1, green: 0.85, blue: 0.4 }; // #ffd966
+  console.log('\nTesting Warner Bros Event:');
+  console.log('Date: January 1 2025');
+  console.log('Expected: Confirmed (Yellow #ffd966)');
+  console.log('Color:', rgbToHex(warnerColor));
+  const result = determineStatusFromColor(
+    { values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] },
+    1,
+    'January 1 2025'
+  );
+  console.log('Result:', result);
+  console.log('Test passed:', result === 'confirmed');
+}
+
+// Run January 1st test
+console.log('\n[TEST] Running January 1st test before processing events...');
+testJanuaryFirst();
 
 // Test function to simulate color detection for January 2025
 function testColorDetection() {
