@@ -56,38 +56,54 @@ function getRowBackgroundColor(rowFormatting: any): any {
 }
 
 const TARGET_COLORS = {
-  green: '#34a853',  // Maps to Confirmed
-  yellow: '#fbbc04', // Maps to Pending
-  red: '#ff0000'     // Maps to Cancelled
+  green: '#00ff00',  // Bright Green
+  yellow: '#ffd966', // Yellow/Orange
+  red: '#ff0000'     // Red
 };
 
 function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string | null {
   const bgColor = getRowBackgroundColor(rowFormatting);
   
   if (!bgColor || bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log(`Row ${rowNumber} (${dateStr}): No color or white background, setting to null`);
+    console.log(`Row ${rowNumber} (${dateStr}): No color or white background, RGB values:`, bgColor);
     return null;  // Return null for no color band
   }
 
   const hexColor = rgbToHex(bgColor);
-  console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
+  console.log(`Row ${rowNumber} (${dateStr}) - Raw RGB:`, bgColor, `Hex: ${hexColor}`);
 
-  // Corrected color mapping
-  if (isColorSimilar(bgColor, '#34a853')) {  // Green
-    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
-    return 'confirmed';
+  // Fixed reversed color mapping
+  if (isColorSimilar(bgColor, '#ffd966')) {  // Yellow/Orange
+    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
+    return 'confirmed';  // Changed from 'pending' to 'confirmed'
   }
-  if (isColorSimilar(bgColor, '#fbbc04')) {  // Yellow
-    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
-    return 'pending';
+  if (isColorSimilar(bgColor, '#00ff00')) {  // Bright Green
+    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
+    return 'pending';  // Changed from 'confirmed' to 'pending'
   }
   if (isColorSimilar(bgColor, '#ff0000')) {  // Red
     console.log(`Row ${rowNumber}: RED detected → Cancelled`);
     return 'cancelled';
   }
 
-  console.log(`Row ${rowNumber}: No color match found, setting to null`);
+  console.log(`Row ${rowNumber}: No color match found. Closest matches:`, {
+    yellow: isColorSimilarWithValue(bgColor, '#ffd966'),
+    green: isColorSimilarWithValue(bgColor, '#00ff00'),
+    red: isColorSimilarWithValue(bgColor, '#ff0000')
+  });
   return null;  // Return null for any unrecognized colors
+}
+
+function isColorSimilarWithValue(color1: any, hexColor2: string): number {
+  const r2 = parseInt(hexColor2.slice(1, 3), 16) / 255;
+  const g2 = parseInt(hexColor2.slice(3, 5), 16) / 255;
+  const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
+
+  const rDiff = Math.abs(color1.red - r2);
+  const gDiff = Math.abs(color1.green - g2);
+  const bDiff = Math.abs(color1.blue - b2);
+  
+  return Math.max(rDiff, gDiff, bDiff);
 }
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
