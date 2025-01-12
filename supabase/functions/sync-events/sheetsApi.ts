@@ -42,7 +42,6 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-// Update color detection to look at any cell in the row
 function getRowBackgroundColor(rowFormatting: any): any {
   if (!rowFormatting?.values) return null;
   
@@ -57,9 +56,9 @@ function getRowBackgroundColor(rowFormatting: any): any {
 }
 
 const TARGET_COLORS = {
-  green: '#34a853',  // Confirmed
-  yellow: '#fbbc04', // Pending
-  red: '#ff0000'     // Cancelled
+  green: '#34a853',  // Maps to Pending
+  yellow: '#fbbc04', // Maps to Confirmed
+  red: '#ff0000'     // Maps to Cancelled
 };
 
 function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr: string): string {
@@ -73,16 +72,16 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
   const hexColor = rgbToHex(bgColor);
   console.log(`Row ${rowNumber} (${dateStr}) - Detected color: ${hexColor}`);
 
-  // More lenient color matching
-  if (isColorSimilar(bgColor, TARGET_COLORS.green)) {
-    console.log(`Row ${rowNumber}: GREEN detected → Confirmed`);
-    return 'confirmed';
-  }
-  if (isColorSimilar(bgColor, TARGET_COLORS.yellow)) {
-    console.log(`Row ${rowNumber}: YELLOW detected → Pending`);
+  // Corrected color mapping
+  if (isColorSimilar(bgColor, '#34a853')) {  // Green
+    console.log(`Row ${rowNumber}: GREEN detected → Pending`);
     return 'pending';
   }
-  if (isColorSimilar(bgColor, TARGET_COLORS.red)) {
+  if (isColorSimilar(bgColor, '#fbbc04')) {  // Yellow
+    console.log(`Row ${rowNumber}: YELLOW detected → Confirmed`);
+    return 'confirmed';
+  }
+  if (isColorSimilar(bgColor, '#ff0000')) {  // Red
     console.log(`Row ${rowNumber}: RED detected → Cancelled`);
     return 'cancelled';
   }
