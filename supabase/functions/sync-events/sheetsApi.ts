@@ -45,11 +45,12 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 function getRowBackgroundColor(rowFormatting: any) {
-  if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
+  if (!rowFormatting?.values?.[1]?.userEnteredFormat?.backgroundColor) {
     return null;
   }
-  const color = rowFormatting.values[0].userEnteredFormat.backgroundColor;
-  console.log('Raw background color from sheet:', color);
+  // Get color from column C (index 1)
+  const color = rowFormatting.values[1].userEnteredFormat.backgroundColor;
+  console.log('Raw background color from column C:', color);
   return color;
 }
 
