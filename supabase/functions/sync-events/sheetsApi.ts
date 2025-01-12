@@ -3,9 +3,9 @@ import { EventStatus, SPREADSHEET_CELL_COLORS } from '../../src/types/eventStatu
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
   console.log('Starting to fetch sheet data...');
   
-  // Fetch the values from columns B and C only
+  // Fetch all relevant columns (B through G)
   const valuesResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:C`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:G`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -50,8 +50,8 @@ function getRowBackgroundColor(rowFormatting: any) {
     return null;
   }
   
-  // Look specifically at column G (index 0 since we start from G)
-  const columnGFormatting = rowFormatting.values[0];
+  // Look specifically at column G (index 5 since we start from B)
+  const columnGFormatting = rowFormatting.values[5];
   if (!columnGFormatting?.userEnteredFormat?.backgroundColor) {
     console.log('No background color in column G');
     return null;
@@ -63,7 +63,6 @@ function getRowBackgroundColor(rowFormatting: any) {
     return null;
   }
 
-  console.log('Found background color in column G:', bgColor);
   return bgColor;
 }
 
@@ -78,7 +77,7 @@ function determineStatusFromColor(rowFormatting: any): EventStatus | null {
 
 function parseSheetRows(values: string[][], formatting: any[]) {
   return values.map((row, index) => {
-    const [date, title] = row;
+    const [date, title, room, promoter, capacity] = row;
     if (!date || !title || date === 'DATE') return null;
     
     const status = determineStatusFromColor(formatting[index]);
@@ -88,7 +87,11 @@ function parseSheetRows(values: string[][], formatting: any[]) {
       date,
       title,
       status,
-      _sheet_line_number: index + 1
+      room: room || '',
+      promoter: promoter || '',
+      capacity: capacity || '',
+      _sheet_line_number: index + 1,
+      is_recurring: false
     };
   }).filter((row): row is NonNullable<typeof row> => row !== null);
 }
