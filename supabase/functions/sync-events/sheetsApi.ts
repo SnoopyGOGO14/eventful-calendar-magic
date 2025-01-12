@@ -44,17 +44,13 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
-function getRowBackgroundColor(rowFormatting: any): any {
-  if (!rowFormatting?.values) return null;
-  
-  // Look through all cells in the row for a background color
-  for (const cell of rowFormatting.values) {
-    const bgColor = cell?.userEnteredFormat?.backgroundColor;
-    if (bgColor) {
-      return bgColor;
-    }
+function getRowBackgroundColor(rowFormatting: any) {
+  if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
+    return null;
   }
-  return null;
+  const color = rowFormatting.values[0].userEnteredFormat.backgroundColor;
+  console.log('Raw background color from sheet:', color);
+  return color;
 }
 
 function isColorSimilar(color1: any, hexColor2: string): boolean {
@@ -64,10 +60,19 @@ function isColorSimilar(color1: any, hexColor2: string): boolean {
   const b2 = parseInt(hexColor2.slice(5, 7), 16) / 255;
 
   // Calculate color difference using a simple distance formula
-  const threshold = 0.2;  // More lenient threshold for matching
+  const threshold = 0.3;  // Even more lenient threshold for matching
   const dr = Math.abs(color1.red - r2);
   const dg = Math.abs(color1.green - g2);
   const db = Math.abs(color1.blue - b2);
+
+  // Special case for Warner Bros green
+  if (hexColor2 === '#00ff00') {
+    // If it's mostly green with little red and blue, it's probably Warner Bros
+    if (color1.green > 0.7 && color1.red < 0.3 && color1.blue < 0.3) {
+      console.log('Detected Warner Bros green (high green, low red/blue)');
+      return true;
+    }
+  }
 
   console.log('Color comparison:', {
     input: {
@@ -115,22 +120,19 @@ function determineStatusFromColor(rowFormatting: any, rowNumber: number, dateStr
     hex: hexColor 
   });
 
-  // Check Warner Bros (Green)
-  console.log(`\nChecking if color matches Warner Bros GREEN (#00ff00):`);
-  if (isColorSimilar(bgColor, '#00ff00')) {
-    console.log(`✅ [${dateStr}] Row ${rowNumber}: GREEN match → Setting as "confirmed"`);
+  // First check Warner Bros (Green) - Most important
+  if (bgColor.green > 0.7 && bgColor.red < 0.3 && bgColor.blue < 0.3) {
+    console.log(`✅ [${dateStr}] Row ${rowNumber}: GREEN detected → Setting as "confirmed"`);
     return 'confirmed';
   }
 
-  // Check Ukrainian (Yellow)
-  console.log(`\nChecking if color matches Ukrainian YELLOW (#ffd966):`);
+  // Then check Ukrainian (Yellow)
   if (isColorSimilar(bgColor, '#ffd966')) {
     console.log(`✅ [${dateStr}] Row ${rowNumber}: YELLOW match → Setting as "pending"`);
     return 'pending';
   }
 
-  // Check Cancelled (Red)
-  console.log(`\nChecking if color matches CANCELLED RED (#ff0000):`);
+  // Finally check Cancelled (Red)
   if (isColorSimilar(bgColor, '#ff0000')) {
     console.log(`✅ [${dateStr}] Row ${rowNumber}: RED match → Setting as "cancelled"`);
     return 'cancelled';
