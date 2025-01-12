@@ -141,6 +141,8 @@ function rgbToHex(color: { red: number; green: number; blue: number }): string {
 }
 
 export function parseSheetRows(values: string[][], formatting: any[]) {
+  console.log('Starting to parse sheet rows. Total rows:', values.length);
+  
   let currentYear = 2025;
   let lastMonth = -1;
 
@@ -154,8 +156,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       capacity: '100',
       status: 'confirmed',
       is_recurring: false,
-      _sheet_line_number: -1,
-      backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // #ffd966
+      _sheet_line_number: -1
     },
     {
       date: '2025-01-01',
@@ -165,8 +166,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       capacity: '100',
       status: 'pending',
       is_recurring: false,
-      _sheet_line_number: -2,
-      backgroundColor: { red: 0, green: 1, blue: 0 }  // #00ff00
+      _sheet_line_number: -2
     },
     {
       date: '2025-01-01',
@@ -176,18 +176,34 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       capacity: '100',
       status: 'cancelled',
       is_recurring: false,
-      _sheet_line_number: -3,
-      backgroundColor: { red: 1, green: 0, blue: 0 }  // #ff0000
+      _sheet_line_number: -3
     }
   ];
 
+  console.log('Added test events:', testEvents);
+
   // Process regular events from the sheet
   const sheetEvents = values
-    .map((row, index) => {
-      if (!row[0]) return null;  // Skip empty rows
-
+    .filter((row: string[], index: number) => {
+      if (!row[0]) {
+        console.log(`Row ${index}: Skipping - No date`);
+        return false;
+      }
+      const hasContent = row.slice(1, 6).some(cell => cell?.trim());
+      if (!hasContent) {
+        console.log(`Row ${index}: Skipping - No content`);
+        return false;
+      }
+      return true;
+    })
+    .map((row: string[], index: number) => {
       const dateStr = row[0]?.trim() || '';
-      if (!dateStr || dateStr === 'DATE') return null;
+      if (!dateStr || dateStr === 'DATE') {
+        console.log(`Row ${index}: Skipping header or empty date`);
+        return null;
+      }
+
+      console.log(`Processing row ${index}:`, { dateStr, row });
 
       const columnC = row[1]?.trim() || '';
       const room = row[2]?.trim() || '';
@@ -201,11 +217,12 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       }
       
       const status = determineStatusFromColor(formatting[index], index + 1, dateStr);
+      console.log(`Status determined for row ${index}:`, status);
 
       // Parse the date string
       const parts = dateStr.split(' ');
       if (parts.length < 3) {
-        console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
+        console.log(`Row ${index}: Invalid date format: "${dateStr}"`);
         return null;
       }
       
@@ -215,7 +232,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       const month = new Date(`${monthName} 1, 2025`).getMonth();
       
       if (isNaN(month) || isNaN(dayNum)) {
-        console.log(`Row ${index + 1}: Invalid date format: "${dateStr}"`);
+        console.log(`Row ${index}: Invalid date format: "${dateStr}"`);
         return null;
       }
 
@@ -225,8 +242,7 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
       lastMonth = month;
 
       const date = new Date(currentYear, month, dayNum);
-
-      return {
+      const event = {
         date: date.toISOString().split('T')[0],
         title,
         room,
@@ -236,11 +252,23 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
         is_recurring: false,
         _sheet_line_number: index + 1
       };
-    })
-    .filter(event => event !== null);
 
-  // For January 1st, 2025, return test events first, then regular events
-  return [...testEvents, ...sheetEvents];
+      console.log(`Created event for row ${index}:`, event);
+      return event;
+    })
+    .filter(event => {
+      if (!event) {
+        console.log('Filtering out null event');
+        return false;
+      }
+      return true;
+    });
+
+  console.log('Processed sheet events:', sheetEvents.length);
+  const allEvents = [...testEvents, ...sheetEvents];
+  console.log('Total events (including test):', allEvents.length);
+  
+  return allEvents;
 }
 
 // Test function to simulate January 1st event
