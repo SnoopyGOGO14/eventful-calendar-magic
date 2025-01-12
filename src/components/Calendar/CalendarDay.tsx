@@ -63,24 +63,24 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({
           key={`${event.date}-${index}`} 
           className="relative bg-[#1B3A4B] p-2 rounded mb-2 last:mb-0"
         >
-          {event.status && (
-            <div className={cn(
-              "absolute top-0 left-0 right-0 h-[6px]",
-              getStatusBand(event.status)?.bg
-            )}>
-              <span className="absolute top-[8px] left-0 right-0 text-center text-xs text-white/70">
-                {getStatusBand(event.status)?.text}
-              </span>
-            </div>
-          )}
-          
-          <div className="text-white mt-4">
+          <div className="text-white">
             {event.title && (
               <div className="font-medium mb-1 text-sm">
                 {event.title}
               </div>
             )}
           </div>
+          
+          {event.status && (
+            <div className={cn(
+              "absolute bottom-0 left-0 right-0 h-[6px]",
+              getStatusBand(event.status)?.bg
+            )}>
+              <span className="absolute bottom-[-16px] left-0 right-0 text-center text-xs text-white/70">
+                {getStatusBand(event.status)?.text}
+              </span>
+            </div>
+          )}
         </div>
       ))}
     </div>
