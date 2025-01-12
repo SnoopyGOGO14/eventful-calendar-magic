@@ -124,19 +124,18 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
   let currentYear = 2025;
   let lastMonth = -1;
 
-  // Process regular events from the sheet
+  // Process events from the sheet
   const allEvents = values.map((row, index) => {
     if (!row[0]) {
       console.log(`Row ${index}: Skipping - No date`);
       return null;
     }
+
     const hasContent = row.slice(1, 6).some(cell => cell?.trim());
     if (!hasContent) {
       console.log(`Row ${index}: Skipping - No content`);
       return null;
     }
-
-    console.log(`Processing row ${index}:`, { row });
 
     const dateStr = row[0]?.trim() || '';
     if (!dateStr || dateStr === 'DATE') {
@@ -195,135 +194,8 @@ export function parseSheetRows(values: string[][], formatting: any[]) {
     console.log(`Created event for row ${index}:`, event);
     return event;
   })
-  .filter(event => {
-    if (!event) {
-      console.log('Filtering out null event');
-      return false;
-    }
-    return true;
-  });
+  .filter(event => event !== null);
 
-  console.log('Processed sheet events:', allEvents.length);
   console.log('Total events:', allEvents.length);
-  
   return allEvents;
 }
-
-// Test function to verify color detection
-function testColorDetection() {
-  console.log('\n=== Testing Color Detection ===\n');
-  
-  // Test Warner Bros (Green)
-  const warnerFormat = {
-    values: [{
-      userEnteredFormat: {
-        backgroundColor: { red: 0, green: 1, blue: 0 }  // #00ff00
-      }
-    }]
-  };
-  console.log('Testing Warner Bros GREEN:');
-  console.log('Result:', determineStatusFromColor(warnerFormat, 1, 'TEST'));
-
-  // Test Ukrainian (Yellow)
-  const ukrainianFormat = {
-    values: [{
-      userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0.85, blue: 0.4 }  // #ffd966
-      }
-    }]
-  };
-  console.log('\nTesting Ukrainian YELLOW:');
-  console.log('Result:', determineStatusFromColor(ukrainianFormat, 2, 'TEST'));
-
-  // Test Cancelled (Red)
-  const cancelledFormat = {
-    values: [{
-      userEnteredFormat: {
-        backgroundColor: { red: 1, green: 0, blue: 0 }  // #ff0000
-      }
-    }]
-  };
-  console.log('\nTesting Cancelled RED:');
-  console.log('Result:', determineStatusFromColor(cancelledFormat, 3, 'TEST'));
-}
-
-// Run color detection test when module loads
-testColorDetection();
-
-// Test function to simulate January 1st event
-function testJanuaryFirst() {
-  console.log('\n=== Testing January 1st, 2025 Event ===');
-  
-  // Test Warner Bros event (Green - Should be Confirmed)
-  const warnerColor = { red: 0, green: 1, blue: 0 }; // #00ff00
-  console.log('\nTesting Warner Bros Event:');
-  console.log('Date: January 1 2025');
-  console.log('Expected: Confirmed (Green #00ff00)');
-  console.log('Color:', rgbToHex(warnerColor));
-  const result = determineStatusFromColor(
-    { values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] },
-    1,
-    'January 1 2025'
-  );
-  console.log('Result:', result);
-  console.log('Test passed:', result === 'confirmed');
-}
-
-// Run January 1st test
-console.log('\n[TEST] Running January 1st test before processing events...');
-testJanuaryFirst();
-
-// Test function to simulate color detection for January 2025
-function testColorDetectionForJanuary2025() {
-  console.log('\n=== Testing Color Detection for January 2025 ===');
-  
-  const dates = [
-    'January 1 2025',
-    'January 15 2025',
-    'January 30 2025'
-  ];
-  
-  // Test Warner Bros events (Green - Should be Confirmed)
-  const warnerColor = { red: 0, green: 1, blue: 0 }; // #00ff00
-  console.log('\nTesting Warner Bros Events (Green):');
-  dates.forEach((date, index) => {
-    console.log(`\nTest ${index + 1}: Warner Bros Event on ${date}`);
-    console.log('Expected: Confirmed (Green #00ff00)');
-    console.log('Result:', determineStatusFromColor(
-      { values: [{ userEnteredFormat: { backgroundColor: warnerColor } }] },
-      index + 1,
-      date
-    ));
-  });
-  
-  // Test Ukrainian events (Yellow - Should be Pending)
-  const ukrainianColor = { red: 1, green: 0.85, blue: 0.4 }; // #ffd966
-  console.log('\nTesting Ukrainian Events (Yellow):');
-  dates.forEach((date, index) => {
-    console.log(`\nTest ${index + 4}: Ukrainian Event on ${date}`);
-    console.log('Expected: Pending (Yellow #ffd966)');
-    console.log('Result:', determineStatusFromColor(
-      { values: [{ userEnteredFormat: { backgroundColor: ukrainianColor } }] },
-      index + 4,
-      date
-    ));
-  });
-  
-  // Test Cancelled events (Red)
-  const cancelledColor = { red: 1, green: 0, blue: 0 }; // #ff0000
-  console.log('\nTesting Cancelled Events (Red):');
-  dates.forEach((date, index) => {
-    console.log(`\nTest ${index + 7}: Cancelled Event on ${date}`);
-    console.log('Expected: Cancelled (Red #ff0000)');
-    console.log('Result:', determineStatusFromColor(
-      { values: [{ userEnteredFormat: { backgroundColor: cancelledColor } }] },
-      index + 7,
-      date
-    ));
-  });
-  
-  console.log('\n=== End of Color Detection Test ===\n');
-}
-
-// Run the test
-testColorDetectionForJanuary2025();
