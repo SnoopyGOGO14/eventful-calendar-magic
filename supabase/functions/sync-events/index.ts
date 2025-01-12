@@ -40,12 +40,11 @@ serve(async (req) => {
     console.log('Successfully got access token')
 
     console.log('Fetching data from sheet...')
-    const { values, formatting } = await fetchSheetData(spreadsheetId, accessToken)
+    const { values } = await fetchSheetData(spreadsheetId, accessToken)
     console.log(`Found ${values?.length || 0} rows in sheet`)
-    console.log(`Found ${formatting?.length || 0} formatting rows`)
 
     console.log('Parsing sheet rows...')
-    const events = parseSheetRows(values, formatting)
+    const events = parseSheetRows(values)
     console.log(`Parsed ${events.length} valid events`)
     console.log('First few events:', events.slice(0, 3))
 
