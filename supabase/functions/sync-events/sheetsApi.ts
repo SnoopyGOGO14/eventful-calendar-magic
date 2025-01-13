@@ -1,15 +1,23 @@
-// Types for event status
-type EventStatus = 'confirmed' | 'pending' | 'cancelled';
+import { EventStatus, SPREADSHEET_CELL_COLORS } from './types.ts';
 
-// Single source of truth for spreadsheet colors
-const SPREADSHEET_CELL_COLORS: Record<string, EventStatus> = {
-  // Cell color -> Status word
-  'rgb(67,160,71)': 'confirmed',    // Google Sheets green
-  'rgb(255,217,102)': 'pending',    // Google Sheets yellow
-  'rgb(244,67,54)': 'cancelled'     // Google Sheets red
-};
+// Types for API responses
+interface SheetData {
+  values: string[][];
+  formatting: any[];
+}
 
-export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
+interface Event {
+  date: string;
+  title: string;
+  status: EventStatus;
+  room?: string;
+  promoter?: string;
+  capacity?: string;
+  _sheet_line_number: number;
+  is_recurring: boolean;
+}
+
+export async function fetchSheetData(spreadsheetId: string, accessToken: string): Promise<SheetData> {
   console.log('Starting to fetch sheet data...');
   
   // Fetch all relevant columns (B through F)
@@ -47,36 +55,31 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
   
+  // Extract formatting array from response
+  const formattingArray = formatting?.sheets?.[0]?.data?.[0]?.rowData || [];
+  
   return {
     values: values.values || [],
-    formatting: formatting.sheets?.[0]?.data?.[0]?.rowData || [],
+    formatting: formattingArray
   };
 }
 
 function getRowBackgroundColor(rowFormatting: any) {
-  if (!rowFormatting?.values) {
-    console.log('No row formatting values found');
+  if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
+    console.log('No background color found for row');
     return null;
   }
   
-  // Look specifically at column G (index 0 since we only fetched G)
-  const columnGFormatting = rowFormatting.values[0];
-  if (!columnGFormatting?.userEnteredFormat?.backgroundColor) {
-    console.log('No background color in column G');
-    return null;
-  }
-
-  const bgColor = columnGFormatting.userEnteredFormat.backgroundColor;
+  const bgColor = rowFormatting.values[0].userEnteredFormat.backgroundColor;
   if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log('Skipping white cell in column G');
+    console.log('Skipping white cell');
     return null;
   }
 
-  console.log('Found background color in column G:', bgColor);
   return bgColor;
 }
 
-function determineStatusFromColor(rowFormatting: any): EventStatus | null {
+function determineStatusFromColor(rowFormatting: any): EventStatus {
   const bgColor = getRowBackgroundColor(rowFormatting);
   if (!bgColor) return 'pending';  // Default to pending if no color found
   
@@ -134,35 +137,35 @@ function formatDate(dateStr: string): string {
   return `2025-${month}-${day}`;
 }
 
-export function parseSheetRows(values: string[][], formatting: any[] = []) {
+export function parseSheetRows(values: string[][], formatting: any[] = []): Event[] {
   console.log('Starting to parse sheet rows...');
   console.log(`Number of rows: ${values?.length || 0}`);
   console.log(`Number of formatting rows: ${formatting?.length || 0}`);
-  
-  if (!values || !Array.isArray(values)) {
-    console.log('No valid rows found in sheet data');
+
+  if (!values?.length) {
+    console.log('No values found in sheet');
     return [];
   }
 
   return values.slice(1).map((row, index) => {  // Skip header row
     if (!row || row.length < 1) {
-      console.log(`Skipping empty row at index ${index + 1}`);  // Add 1 to account for header
+      console.log(`Skipping empty row at index ${index + 1}`);
       return null;
     }
 
     const [date, title, room, promoter, capacity] = row;
-    if (!date || !title) {  // Remove date === 'DATE' check since we're skipping header
+    if (!date || !title) {
       console.log(`Skipping invalid row at index ${index + 1}: missing date or title`);
       return null;
     }
     
     // Get formatting for this row, default to pending if not found
     const rowFormatting = formatting[index + 1];  // Add 1 to account for header
-    const status = rowFormatting ? determineStatusFromColor(rowFormatting) : 'pending';
-    console.log(`Row ${index + 2}: date=${date}, title=${title}, status=${status}`);  // Add 2 to show actual sheet line number
+    const status = determineStatusFromColor(rowFormatting);
+    console.log(`Row ${index + 2}: date=${date}, title=${title}, status=${status}`);
 
     return {
-      date: formatDate(date.trim()),  // Format date as YYYY-MM-DD
+      date: formatDate(date.trim()),
       title: title.trim(),
       status,
       room: room?.trim() || '',
@@ -171,5 +174,5 @@ export function parseSheetRows(values: string[][], formatting: any[] = []) {
       _sheet_line_number: index + 2,  // Add 2 to show actual sheet line number
       is_recurring: false
     };
-  }).filter((row): row is NonNullable<typeof row> => row !== null);
+  }).filter((row): row is Event => row !== null);
 }

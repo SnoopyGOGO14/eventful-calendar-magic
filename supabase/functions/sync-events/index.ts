@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { getAccessToken } from './googleAuth.ts'
 import { fetchSheetData, parseSheetRows } from './sheetsApi.ts'
@@ -14,96 +14,31 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== Starting events sync ===')
-    
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    const credentialsStr = Deno.env.get('SHEETS_CRED')
-    console.log('Checking for credentials...')
-    if (!credentialsStr) {
-      throw new Error('Google Sheets credentials not found')
-    }
-    console.log('Found credentials string')
-    
-    let credentials
-    try {
-      // Remove any extra quotes that might be wrapping the JSON string
-      const cleanStr = credentialsStr.replace(/^['"]|['"]$/g, '')
-      console.log('Attempting to parse credentials...')
-      credentials = JSON.parse(cleanStr)
-      console.log('Successfully parsed credentials')
-      console.log('Credentials type:', credentials.type)
-      console.log('Project ID:', credentials.project_id)
-      console.log('Client email:', credentials.client_email)
-    } catch (error) {
-      console.error('Error parsing credentials:', error)
-      console.error('Credentials string:', credentialsStr.substring(0, 50) + '...')
-      throw error
-    }
-    
-    console.log('Supabase URL:', supabaseUrl)
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false
-      }
-    })
-
     const { spreadsheetId } = await req.json()
-    console.log('Spreadsheet ID:', spreadsheetId)
-    
     if (!spreadsheetId) {
-      throw new Error('Spreadsheet ID is required')
+      throw new Error('Missing spreadsheetId in request body')
     }
 
-    console.log('Getting Google Sheets access token...')
-    const accessToken = await getAccessToken(credentials)
-    console.log('Successfully got access token')
+    console.log('Starting sync process...')
+    console.log('Getting access token...')
+    const accessToken = await getAccessToken()
 
-    console.log('Fetching data from sheet...')
+    console.log('Fetching sheet data...')
     const { values, formatting } = await fetchSheetData(spreadsheetId, accessToken)
-    console.log(`Found ${values?.length || 0} rows in sheet`)
 
-    console.log('Parsing sheet rows...')
+    console.log('Parsing rows...')
     const events = parseSheetRows(values, formatting)
-    console.log(`Parsed ${events.length} valid events`)
-    console.log('First few events:', events.slice(0, 3))
+    console.log(`Found ${events.length} valid events`)
 
-    console.log('=== Starting database operations ===')
-    
-    // First check current events
-    const { data: currentEvents, error: fetchError } = await supabase
-      .from('events')
-      .select('id, date, title')
-    
-    if (fetchError) {
-      console.error('Error fetching current events:', fetchError)
-      throw new Error('Failed to fetch current events')
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables')
     }
-    
-    console.log(`Found ${currentEvents?.length || 0} existing events in database`)
 
-    console.log('Clearing existing events...')
-    const { error: deleteError } = await supabase
-      .from('events')
-      .delete()
-      .not('id', 'is', null)  // Delete all events, no special handling for test data
-
-    if (deleteError) {
-      console.error('Error deleting events:', deleteError)
-      throw new Error('Failed to delete events')
-    }
-    console.log('Successfully cleared existing events')
-
-    if (events.length === 0) {
-      console.log('No events to insert, finishing sync')
-      return new Response(
-        JSON.stringify({ success: true, message: 'No events to sync' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
-    }
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    console.log('Supabase client initialized')
 
     console.log(`Inserting ${events.length} events...`)
     console.log('Sample event:', JSON.stringify(events[0], null, 2))
@@ -126,25 +61,9 @@ serve(async (req) => {
     }
 
     console.log('Successfully inserted new events')
-
-    // Verify the insert
-    const { data: verifyEvents, error: verifyError } = await supabase
-      .from('events')
-      .select('id, date, title, status')
-      .order('date', { ascending: true })
-    
-    if (verifyError) {
-      console.error('Error verifying events:', verifyError)
-    } else {
-      console.log(`Verified ${verifyEvents?.length || 0} events in database`)
-      console.log('First few events in DB:', verifyEvents?.slice(0, 3))
-    }
-
-    console.log('=== Events sync completed successfully ===')
-    
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: 'Events synced successfully',
         eventCount: events.length
       }),
@@ -152,15 +71,17 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('=== Error syncing events ===')
-    console.error(error)
+    console.error('Error in sync process:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: error instanceof Error ? error.stack : undefined
+      JSON.stringify({
+        success: false,
+        error: error.message,
+        details: error.toString()
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     )
   }
 })
