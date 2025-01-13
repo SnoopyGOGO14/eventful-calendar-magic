@@ -5,6 +5,6 @@ export type EventStatus = 'confirmed' | 'pending' | 'cancelled';
 export const SPREADSHEET_CELL_COLORS: Record<string, EventStatus> = {
   // Cell color -> Status word
   'rgb(67,160,71)': 'confirmed',    // Google Sheets green
-  'rgb(255,217,102)': 'pending',    // Google Sheets yellow
-  'rgb(244,67,54)': 'cancelled'     // Google Sheets red
+  'rgb(255,153,0)': 'pending',      // Google Sheets orange/yellow
+  'rgb(234,67,53)': 'cancelled'     // Google Sheets red
 };

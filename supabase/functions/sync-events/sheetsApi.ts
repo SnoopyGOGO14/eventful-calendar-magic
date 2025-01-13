@@ -36,9 +36,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${errorText}`);
   }
 
-  // Fetch background color formatting for column G only
+  // Fetch background color formatting for column B only
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:B&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -160,7 +160,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
     }
     
     // Get formatting for this row, default to pending if not found
-    const rowFormatting = formatting[index + 1];  // Add 1 to account for header
+    const rowFormatting = formatting[index];  // Removed + 1 to account for header
     const status = determineStatusFromColor(rowFormatting);
     console.log(`Row ${index + 2}: date=${date}, title=${title}, status=${status}`);
 
