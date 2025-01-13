@@ -1,8 +1,8 @@
 export async function getAccessToken() {
   // Get credentials from environment variable
-  const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS');
+  const credentialsStr = Deno.env.get('SHEETS_CRED');
   if (!credentialsStr) {
-    throw new Error('GOOGLE_SHEETS_CREDENTIALS environment variable is not set');
+    throw new Error('SHEETS_CRED environment variable is not set');
   }
 
   let credentials;
@@ -10,7 +10,7 @@ export async function getAccessToken() {
     credentials = JSON.parse(credentialsStr);
   } catch (error) {
     console.error('Error parsing credentials:', error);
-    throw new Error('Failed to parse GOOGLE_SHEETS_CREDENTIALS JSON');
+    throw new Error('Failed to parse SHEETS_CRED JSON');
   }
 
   if (!credentials.client_email || !credentials.private_key) {
