@@ -1,7 +1,7 @@
 -- Create events table
 create table if not exists public.events (
   id uuid default gen_random_uuid() primary key,
-  date text not null,
+  date text not null,  -- Keep as text to preserve original format
   title text not null,
   status text default 'pending',
   is_recurring boolean default false,
@@ -22,12 +22,12 @@ create policy "Allow public read access"
   for select
   using (true);
 
--- Create policy to allow authenticated users to insert/update events
-create policy "Allow authenticated users to manage events"
+-- Create policy to allow authenticated users and service role to manage events
+create policy "Allow authenticated users and service role to manage events"
   on public.events
   for all
-  using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+  using (auth.role() in ('authenticated', 'service_role'))
+  with check (auth.role() in ('authenticated', 'service_role'));
 
 -- Create function to automatically update updated_at on row update
 create or replace function public.handle_updated_at()

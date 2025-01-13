@@ -18,9 +18,38 @@ serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const credentialsStr = Deno.env.get('SHEETS_CRED')
+    console.log('Checking for credentials...')
+    if (!credentialsStr) {
+      throw new Error('Google Sheets credentials not found')
+    }
+    console.log('Found credentials string')
+    
+    let credentials
+    try {
+      // Remove any extra quotes that might be wrapping the JSON string
+      const cleanStr = credentialsStr.replace(/^['"]|['"]$/g, '')
+      console.log('Attempting to parse credentials...')
+      credentials = JSON.parse(cleanStr)
+      console.log('Successfully parsed credentials')
+      console.log('Credentials type:', credentials.type)
+      console.log('Project ID:', credentials.project_id)
+      console.log('Client email:', credentials.client_email)
+    } catch (error) {
+      console.error('Error parsing credentials:', error)
+      console.error('Credentials string:', credentialsStr.substring(0, 50) + '...')
+      throw error
+    }
+    
     console.log('Supabase URL:', supabaseUrl)
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false
+      }
+    })
 
     const { spreadsheetId } = await req.json()
     console.log('Spreadsheet ID:', spreadsheetId)
@@ -29,13 +58,7 @@ serve(async (req) => {
       throw new Error('Spreadsheet ID is required')
     }
 
-    const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS')
-    if (!credentialsStr) {
-      throw new Error('Google Sheets credentials not found')
-    }
-
     console.log('Getting Google Sheets access token...')
-    const credentials = JSON.parse(credentialsStr)
     const accessToken = await getAccessToken(credentials)
     console.log('Successfully got access token')
 
@@ -83,6 +106,7 @@ serve(async (req) => {
     }
 
     console.log(`Inserting ${events.length} events...`)
+    console.log('Sample event:', JSON.stringify(events[0], null, 2))
     const { error: insertError } = await supabase
       .from('events')
       .insert(events.map(event => ({
@@ -98,7 +122,7 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('Error inserting events:', insertError)
-      throw new Error('Failed to insert events')
+      throw new Error(`Failed to insert events: ${insertError.message}`)
     }
 
     console.log('Successfully inserted new events')
