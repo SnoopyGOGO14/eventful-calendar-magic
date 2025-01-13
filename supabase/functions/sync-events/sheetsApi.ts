@@ -17,10 +17,8 @@ interface Event {
   is_recurring: boolean;
 }
 
-// Add the missing formatDate function
 function formatDate(dateStr: string): string {
-  // First, try to parse the date string
-  const parts = dateStr.split('/');
+  console.log('Formatting date:', dateStr);
   
   // If the date is already in YYYY-MM-DD format, return it as is
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -28,23 +26,44 @@ function formatDate(dateStr: string): string {
   }
 
   // Handle DD/MM format (assuming year 2025)
-  if (parts.length === 2) {
-    const day = parts[0].padStart(2, '0');
-    const month = parts[1].padStart(2, '0');
+  const slashFormat = dateStr.split('/');
+  if (slashFormat.length === 2) {
+    const day = slashFormat[0].padStart(2, '0');
+    const month = slashFormat[1].padStart(2, '0');
     return `2025-${month}-${day}`;
   }
 
   // Handle DD/MM/YYYY format
-  if (parts.length === 3) {
-    const day = parts[0].padStart(2, '0');
-    const month = parts[1].padStart(2, '0');
-    const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+  if (slashFormat.length === 3) {
+    const day = slashFormat[0].padStart(2, '0');
+    const month = slashFormat[1].padStart(2, '0');
+    const year = slashFormat[2].length === 2 ? `20${slashFormat[2]}` : slashFormat[2];
     return `${year}-${month}-${day}`;
   }
 
-  // If the format is not recognized, log an error and return the original string
-  console.error(`Unrecognized date format: ${dateStr}`);
-  return dateStr;
+  // Handle full text format (e.g., "Saturday January 4")
+  try {
+    // Remove any day names and extra spaces
+    const cleanDate = dateStr.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+/i, '').trim();
+    
+    // Parse the date assuming it's for 2025
+    const date = new Date(`${cleanDate}, 2025`);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date');
+    }
+    
+    // Format as YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error(`Error parsing date "${dateStr}":`, error);
+    throw new Error(`Invalid date format: ${dateStr}`);
+  }
 }
 
 export async function fetchSheetData(spreadsheetId: string, accessToken: string): Promise<SheetData> {
@@ -94,6 +113,54 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
+export function parseSheetRows(values: string[][], formatting: any[] = []): Event[] {
+  console.log('Starting to parse sheet rows...');
+  console.log(`Number of rows: ${values?.length || 0}`);
+  console.log(`Number of formatting rows: ${formatting?.length || 0}`);
+
+  if (!values?.length) {
+    console.log('No values found in sheet');
+    return [];
+  }
+
+  return values.slice(1).map((row, index) => {  // Skip header row
+    if (!row || row.length < 1) {
+      console.log(`Skipping empty row at index ${index + 1}`);
+      return null;
+    }
+
+    const [date, title, room, promoter, capacity] = row;
+    if (!date || !title) {
+      console.log(`Skipping invalid row at index ${index + 1}: missing date or title`);
+      return null;
+    }
+    
+    try {
+      const formattedDate = formatDate(date.trim());
+      console.log(`Formatted date for row ${index + 2}: ${date} -> ${formattedDate}`);
+      
+      // Get formatting for this row, default to pending if not found
+      const rowFormatting = formatting[index + 1];  // Add 1 to account for header
+      const status = determineStatusFromColor(rowFormatting);
+      console.log(`Row ${index + 2}: date=${formattedDate}, title=${title}, status=${status}`);
+
+      return {
+        date: formattedDate,
+        title: title.trim(),
+        status,
+        room: room?.trim() || '',
+        promoter: promoter?.trim() || '',
+        capacity: capacity?.trim() || '',
+        _sheet_line_number: index + 2,  // Add 2 to show actual sheet line number
+        is_recurring: false
+      };
+    } catch (error) {
+      console.error(`Error processing row ${index + 2}:`, error);
+      return null;
+    }
+  }).filter((row): row is Event => row !== null);
+}
+
 function getRowBackgroundColor(rowFormatting: any) {
   console.log('Row formatting:', JSON.stringify(rowFormatting));
   
@@ -128,44 +195,4 @@ function determineStatusFromColor(rowFormatting: any): EventStatus {
   const status = SPREADSHEET_CELL_COLORS[rgb] || 'pending';
   console.log('Determined status:', status);
   return status;
-}
-
-export function parseSheetRows(values: string[][], formatting: any[] = []): Event[] {
-  console.log('Starting to parse sheet rows...');
-  console.log(`Number of rows: ${values?.length || 0}`);
-  console.log(`Number of formatting rows: ${formatting?.length || 0}`);
-
-  if (!values?.length) {
-    console.log('No values found in sheet');
-    return [];
-  }
-
-  return values.slice(1).map((row, index) => {  // Skip header row
-    if (!row || row.length < 1) {
-      console.log(`Skipping empty row at index ${index + 1}`);
-      return null;
-    }
-
-    const [date, title, room, promoter, capacity] = row;
-    if (!date || !title) {
-      console.log(`Skipping invalid row at index ${index + 1}: missing date or title`);
-      return null;
-    }
-    
-    // Get formatting for this row, default to pending if not found
-    const rowFormatting = formatting[index + 1];  // Add 1 to account for header
-    const status = determineStatusFromColor(rowFormatting);
-    console.log(`Row ${index + 2}: date=${date}, title=${title}, status=${status}`);
-
-    return {
-      date: formatDate(date.trim()),
-      title: title.trim(),
-      status,
-      room: room?.trim() || '',
-      promoter: promoter?.trim() || '',
-      capacity: capacity?.trim() || '',
-      _sheet_line_number: index + 2,  // Add 2 to show actual sheet line number
-      is_recurring: false
-    };
-  }).filter((row): row is Event => row !== null);
 }
