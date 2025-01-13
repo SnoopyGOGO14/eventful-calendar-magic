@@ -65,12 +65,16 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 function getRowBackgroundColor(rowFormatting: any) {
+  console.log('Row formatting:', JSON.stringify(rowFormatting));
+  
   if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
     console.log('No background color found for row');
     return null;
   }
   
   const bgColor = rowFormatting.values[0].userEnteredFormat.backgroundColor;
+  console.log('Background color found:', bgColor);
+  
   if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
     console.log('Skipping white cell');
     return null;
@@ -81,60 +85,19 @@ function getRowBackgroundColor(rowFormatting: any) {
 
 function determineStatusFromColor(rowFormatting: any): EventStatus {
   const bgColor = getRowBackgroundColor(rowFormatting);
-  if (!bgColor) return 'pending';  // Default to pending if no color found
+  if (!bgColor) {
+    console.log('No background color, defaulting to pending');
+    return 'pending';
+  }
   
   // Convert to RGB string format
   const rgb = `rgb(${Math.round(bgColor.red * 255)},${Math.round(bgColor.green * 255)},${Math.round(bgColor.blue * 255)})`;
-  return SPREADSHEET_CELL_COLORS[rgb] || 'pending';
-}
-
-function formatDate(dateStr: string): string {
-  // Convert various date formats to "2025-01-04"
-  const months: { [key: string]: string } = {
-    'January': '01', 'Janaury': '01',  // Handle common misspelling
-    'February': '02', 'Febuary': '02',  // Handle common misspelling
-    'March': '03',
-    'April': '04',
-    'May': '05',
-    'June': '06',
-    'July': '07',
-    'August': '08',
-    'September': '09',
-    'October': '10',
-    'November': '11',
-    'December': '12'
-  };
-
-  const parts = dateStr.split(' ');
+  console.log('Converted RGB:', rgb);
+  console.log('Available color mappings:', SPREADSHEET_CELL_COLORS);
   
-  // Find the month part and day part
-  let monthPart = '';
-  let dayPart = '';
-  for (const part of parts) {
-    // Check for month
-    if (months[part]) {
-      monthPart = part;
-      continue;
-    }
-    
-    // Check for day with ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
-    const dayMatch = part.match(/^(\d+)(st|nd|rd|th)?$/);
-    if (dayMatch) {
-      dayPart = dayMatch[1];  // Extract just the number
-      continue;
-    }
-  }
-
-  if (!monthPart || !dayPart) {
-    console.error(`Could not parse date format: ${dateStr}`);
-    console.error(`Month part: ${monthPart}, Day part: ${dayPart}`);
-    throw new Error(`Could not parse date format: ${dateStr}`);
-  }
-
-  const month = months[monthPart];
-  const day = dayPart.padStart(2, '0');
-
-  return `2025-${month}-${day}`;
+  const status = SPREADSHEET_CELL_COLORS[rgb] || 'pending';
+  console.log('Determined status:', status);
+  return status;
 }
 
 export function parseSheetRows(values: string[][], formatting: any[] = []): Event[] {
