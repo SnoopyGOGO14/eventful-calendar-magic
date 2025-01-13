@@ -1,10 +1,28 @@
-export async function getAccessToken(credentials: any) {
-  const now = Math.floor(Date.now() / 1000)
+export async function getAccessToken() {
+  // Get credentials from environment variable
+  const credentialsStr = Deno.env.get('GOOGLE_SHEETS_CREDENTIALS');
+  if (!credentialsStr) {
+    throw new Error('GOOGLE_SHEETS_CREDENTIALS environment variable is not set');
+  }
+
+  let credentials;
+  try {
+    credentials = JSON.parse(credentialsStr);
+  } catch (error) {
+    console.error('Error parsing credentials:', error);
+    throw new Error('Failed to parse GOOGLE_SHEETS_CREDENTIALS JSON');
+  }
+
+  if (!credentials.client_email || !credentials.private_key) {
+    throw new Error('Invalid credentials format - missing client_email or private_key');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
   
   const jwtHeader = btoa(JSON.stringify({
     alg: 'RS256',
     typ: 'JWT'
-  }))
+  }));
   
   const jwtClaimSet = btoa(JSON.stringify({
     iss: credentials.client_email,
@@ -12,28 +30,28 @@ export async function getAccessToken(credentials: any) {
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now
-  }))
+  }));
 
-  const signInput = `${jwtHeader}.${jwtClaimSet}`
-  const encoder = new TextEncoder()
-  const signBytes = encoder.encode(signInput)
+  const signInput = `${jwtHeader}.${jwtClaimSet}`;
+  const encoder = new TextEncoder();
+  const signBytes = encoder.encode(signInput);
 
   const keyImportParams = {
     name: 'RSASSA-PKCS1-v1_5',
     hash: { name: 'SHA-256' },
-  }
+  };
 
-  const pemHeader = '-----BEGIN PRIVATE KEY-----'
-  const pemFooter = '-----END PRIVATE KEY-----'
+  const pemHeader = '-----BEGIN PRIVATE KEY-----';
+  const pemFooter = '-----END PRIVATE KEY-----';
   const pemContents = credentials.private_key
     .replace(pemHeader, '')
     .replace(pemFooter, '')
-    .replace(/\s/g, '')
+    .replace(/\s/g, '');
 
-  const binaryKey = atob(pemContents)
-  const binaryKeyBytes = new Uint8Array(binaryKey.length)
+  const binaryKey = atob(pemContents);
+  const binaryKeyBytes = new Uint8Array(binaryKey.length);
   for (let i = 0; i < binaryKey.length; i++) {
-    binaryKeyBytes[i] = binaryKey.charCodeAt(i)
+    binaryKeyBytes[i] = binaryKey.charCodeAt(i);
   }
 
   const cryptoKey = await crypto.subtle.importKey(
@@ -42,16 +60,16 @@ export async function getAccessToken(credentials: any) {
     keyImportParams,
     false,
     ['sign']
-  )
+  );
 
   const signature = await crypto.subtle.sign(
     keyImportParams.name,
     cryptoKey,
     signBytes
-  )
+  );
 
-  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-  const jwt = `${signInput}.${signatureBase64}`
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  const jwt = `${signInput}.${signatureBase64}`;
 
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -62,12 +80,14 @@ export async function getAccessToken(credentials: any) {
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
       assertion: jwt
     })
-  })
+  });
 
   if (!tokenResponse.ok) {
-    throw new Error('Failed to get access token: ' + await tokenResponse.text())
+    const errorText = await tokenResponse.text();
+    console.error('Token response error:', errorText);
+    throw new Error(`Failed to get access token: ${errorText}`);
   }
 
-  const { access_token } = await tokenResponse.json()
-  return access_token
+  const { access_token } = await tokenResponse.json();
+  return access_token;
 }
