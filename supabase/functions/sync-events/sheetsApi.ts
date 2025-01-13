@@ -17,6 +17,36 @@ interface Event {
   is_recurring: boolean;
 }
 
+// Add the missing formatDate function
+function formatDate(dateStr: string): string {
+  // First, try to parse the date string
+  const parts = dateStr.split('/');
+  
+  // If the date is already in YYYY-MM-DD format, return it as is
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateStr;
+  }
+
+  // Handle DD/MM format (assuming year 2025)
+  if (parts.length === 2) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    return `2025-${month}-${day}`;
+  }
+
+  // Handle DD/MM/YYYY format
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+    return `${year}-${month}-${day}`;
+  }
+
+  // If the format is not recognized, log an error and return the original string
+  console.error(`Unrecognized date format: ${dateStr}`);
+  return dateStr;
+}
+
 export async function fetchSheetData(spreadsheetId: string, accessToken: string): Promise<SheetData> {
   console.log('Starting to fetch sheet data...');
   
