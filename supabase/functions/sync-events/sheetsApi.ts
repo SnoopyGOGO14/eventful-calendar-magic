@@ -59,7 +59,9 @@ function formatDate(dateStr: string): string {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     
-    return `${year}-${month}-${day}`;
+    const formattedDate = `${year}-${month}-${day}`;
+    console.log(`Formatted date: ${dateStr} -> ${formattedDate}`);
+    return formattedDate;
   } catch (error) {
     console.error(`Error parsing date "${dateStr}":`, error);
     throw new Error(`Invalid date format: ${dateStr}`);
@@ -113,6 +115,43 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   };
 }
 
+function getRowBackgroundColor(rowFormatting: any) {
+  console.log('Processing row formatting:', JSON.stringify(rowFormatting));
+  
+  if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
+    console.log('No background color found for row');
+    return null;
+  }
+  
+  const bgColor = rowFormatting.values[0].userEnteredFormat.backgroundColor;
+  console.log('Raw background color:', bgColor);
+  
+  // Check if it's white (skip)
+  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
+    console.log('Skipping white cell');
+    return null;
+  }
+
+  return bgColor;
+}
+
+function determineStatusFromColor(rowFormatting: any): EventStatus {
+  const bgColor = getRowBackgroundColor(rowFormatting);
+  if (!bgColor) {
+    console.log('No background color, defaulting to pending');
+    return 'pending';
+  }
+  
+  // Convert to RGB string format with rounding to handle floating point precision
+  const rgb = `rgb(${Math.round(bgColor.red * 255)},${Math.round(bgColor.green * 255)},${Math.round(bgColor.blue * 255)})`;
+  console.log('Converted RGB color:', rgb);
+  console.log('Available color mappings:', SPREADSHEET_CELL_COLORS);
+  
+  const status = SPREADSHEET_CELL_COLORS[rgb] || 'pending';
+  console.log('Determined status:', status);
+  return status;
+}
+
 export function parseSheetRows(values: string[][], formatting: any[] = []): Event[] {
   console.log('Starting to parse sheet rows...');
   console.log(`Number of rows: ${values?.length || 0}`);
@@ -159,40 +198,4 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       return null;
     }
   }).filter((row): row is Event => row !== null);
-}
-
-function getRowBackgroundColor(rowFormatting: any) {
-  console.log('Row formatting:', JSON.stringify(rowFormatting));
-  
-  if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
-    console.log('No background color found for row');
-    return null;
-  }
-  
-  const bgColor = rowFormatting.values[0].userEnteredFormat.backgroundColor;
-  console.log('Background color found:', bgColor);
-  
-  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log('Skipping white cell');
-    return null;
-  }
-
-  return bgColor;
-}
-
-function determineStatusFromColor(rowFormatting: any): EventStatus {
-  const bgColor = getRowBackgroundColor(rowFormatting);
-  if (!bgColor) {
-    console.log('No background color, defaulting to pending');
-    return 'pending';
-  }
-  
-  // Convert to RGB string format
-  const rgb = `rgb(${Math.round(bgColor.red * 255)},${Math.round(bgColor.green * 255)},${Math.round(bgColor.blue * 255)})`;
-  console.log('Converted RGB:', rgb);
-  console.log('Available color mappings:', SPREADSHEET_CELL_COLORS);
-  
-  const status = SPREADSHEET_CELL_COLORS[rgb] || 'pending';
-  console.log('Determined status:', status);
-  return status;
 }
