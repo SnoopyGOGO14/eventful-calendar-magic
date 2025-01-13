@@ -25,23 +25,6 @@ function formatDate(dateStr: string): string {
     return dateStr;
   }
 
-  // Handle DD/MM format (assuming year 2025)
-  const slashFormat = dateStr.split('/');
-  if (slashFormat.length === 2) {
-    const day = slashFormat[0].padStart(2, '0');
-    const month = slashFormat[1].padStart(2, '0');
-    return `2025-${month}-${day}`;
-  }
-
-  // Handle DD/MM/YYYY format
-  if (slashFormat.length === 3) {
-    const day = slashFormat[0].padStart(2, '0');
-    const month = slashFormat[1].padStart(2, '0');
-    const year = slashFormat[2].length === 2 ? `20${slashFormat[2]}` : slashFormat[2];
-    return `${year}-${month}-${day}`;
-  }
-
-  // Handle full text format (e.g., "Saturday January 4")
   try {
     // Remove any day names and extra spaces
     const cleanDate = dateStr.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+/i, '').trim();
@@ -71,7 +54,7 @@ function formatDate(dateStr: string): string {
 export async function fetchSheetData(spreadsheetId: string, accessToken: string): Promise<SheetData> {
   console.log('Starting to fetch sheet data...');
   
-  // Fetch all relevant columns (B through F)
+  // Fetch values (columns B through F)
   const valuesResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:F`,
     {
@@ -87,7 +70,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${errorText}`);
   }
 
-  // Fetch background color formatting for column G only
+  // Fetch formatting for status column (G)
   const formattingResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
@@ -105,8 +88,6 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
-  
-  // Extract formatting array from response
   const formattingArray = formatting?.sheets?.[0]?.data?.[0]?.rowData || [];
   
   return {
@@ -142,12 +123,24 @@ function determineStatusFromColor(rowFormatting: any): EventStatus {
     return 'pending';
   }
   
-  // Convert to RGB string format with rounding to handle floating point precision
-  const rgb = `rgb(${Math.round(bgColor.red * 255)},${Math.round(bgColor.green * 255)},${Math.round(bgColor.blue * 255)})`;
-  console.log('Converted RGB color:', rgb);
-  console.log('Available color mappings:', SPREADSHEET_CELL_COLORS);
+  // Try different color formats
+  const rgbWithSpaces = `rgb(${Math.round(bgColor.red * 255)}, ${Math.round(bgColor.green * 255)}, ${Math.round(bgColor.blue * 255)})`;
+  const rgbWithoutSpaces = `rgb(${Math.round(bgColor.red * 255)},${Math.round(bgColor.green * 255)},${Math.round(bgColor.blue * 255)})`;
+  const hex = `#${Math.round(bgColor.red * 255).toString(16).padStart(2, '0')}${Math.round(bgColor.green * 255).toString(16).padStart(2, '0')}${Math.round(bgColor.blue * 255).toString(16).padStart(2, '0')}`.toUpperCase();
   
-  const status = SPREADSHEET_CELL_COLORS[rgb] || 'pending';
+  console.log('Color formats:', {
+    rgbWithSpaces,
+    rgbWithoutSpaces,
+    hex,
+    mappings: SPREADSHEET_CELL_COLORS
+  });
+  
+  // Try all formats
+  const status = SPREADSHEET_CELL_COLORS[rgbWithSpaces] || 
+                SPREADSHEET_CELL_COLORS[rgbWithoutSpaces] || 
+                SPREADSHEET_CELL_COLORS[hex] || 
+                'pending';
+                
   console.log('Determined status:', status);
   return status;
 }
@@ -162,7 +155,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
     return [];
   }
 
-  return values.slice(1).map((row, index) => {  // Skip header row
+  return values.slice(1).map((row, index) => {
     if (!row || row.length < 1) {
       console.log(`Skipping empty row at index ${index + 1}`);
       return null;
@@ -176,12 +169,20 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
     
     try {
       const formattedDate = formatDate(date.trim());
-      console.log(`Formatted date for row ${index + 2}: ${date} -> ${formattedDate}`);
+      console.log(`Row ${index + 2}: Processing date=${date} -> ${formattedDate}`);
       
-      // Get formatting for this row, default to pending if not found
-      const rowFormatting = formatting[index + 1];  // Add 1 to account for header
+      // Get formatting for this row (add 1 to account for header)
+      const rowFormatting = formatting[index + 1];
       const status = determineStatusFromColor(rowFormatting);
-      console.log(`Row ${index + 2}: date=${formattedDate}, title=${title}, status=${status}`);
+      
+      console.log(`Row ${index + 2}: Final values:`, {
+        date: formattedDate,
+        title: title.trim(),
+        status,
+        room: room?.trim(),
+        promoter: promoter?.trim(),
+        capacity: capacity?.trim()
+      });
 
       return {
         date: formattedDate,
@@ -190,7 +191,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
         room: room?.trim() || '',
         promoter: promoter?.trim() || '',
         capacity: capacity?.trim() || '',
-        _sheet_line_number: index + 2,  // Add 2 to show actual sheet line number
+        _sheet_line_number: index + 2,
         is_recurring: false
       };
     } catch (error) {
