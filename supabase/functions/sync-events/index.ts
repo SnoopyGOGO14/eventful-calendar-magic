@@ -48,7 +48,7 @@ serve(async (req) => {
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .gt('id', 0) // Delete all events
+      .not('id', 'is', null) // Delete all events
 
     if (deleteError) {
       console.error('Error clearing existing events:', deleteError)
