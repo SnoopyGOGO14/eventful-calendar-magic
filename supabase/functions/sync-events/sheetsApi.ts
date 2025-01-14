@@ -104,7 +104,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 }
 
 function getRowBackgroundColor(rowFormatting: any) {
-  console.log('Processing row formatting:', JSON.stringify(rowFormatting));
+  console.log('Processing row formatting:', JSON.stringify(rowFormatting, null, 2));
   
   if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
     console.log('No background color found for row');
@@ -112,7 +112,7 @@ function getRowBackgroundColor(rowFormatting: any) {
   }
   
   const bgColor = rowFormatting.values[0].userEnteredFormat.backgroundColor;
-  console.log('Raw background color:', bgColor);
+  console.log('Raw background color from Google Sheets:', JSON.stringify(bgColor, null, 2));
   
   // Convert RGB values to 0-255 range
   const r = Math.round(bgColor.red * 255);
@@ -121,9 +121,10 @@ function getRowBackgroundColor(rowFormatting: any) {
   
   console.log(`Converted RGB values: R:${r} G:${g} B:${b}`);
   
-  // Check if it's white (skip)
-  if (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1) {
-    console.log('Skipping white cell');
+  // Check if it's white or no color (skip)
+  if (!bgColor.red || !bgColor.green || !bgColor.blue || 
+      (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1)) {
+    console.log('Skipping white or empty cell');
     return null;
   }
 
@@ -142,17 +143,16 @@ function determineStatusFromColor(rowFormatting: any): EventStatus {
   const rgbWithoutSpaces = `rgb(${bgColor.red},${bgColor.green},${bgColor.blue})`;
   const hex = `#${bgColor.red.toString(16).padStart(2, '0')}${bgColor.green.toString(16).padStart(2, '0')}${bgColor.blue.toString(16).padStart(2, '0')}`.toUpperCase();
   
-  console.log('Trying to match color formats:', {
+  console.log('Color formats to match:', {
     rgbWithSpaces,
     rgbWithoutSpaces,
-    hex,
-    availableMappings: SPREADSHEET_CELL_COLORS
+    hex
   });
+  console.log('Available color mappings:', SPREADSHEET_CELL_COLORS);
   
   // Try all formats
   let status = SPREADSHEET_CELL_COLORS[rgbWithSpaces] || 
-               SPREADSHEET_CELL_COLORS[rgbWithoutSpaces] || 
-               SPREADSHEET_CELL_COLORS[hex];
+               SPREADSHEET_CELL_COLORS[rgbWithoutSpaces];
                
   // If no match found, try approximate matching (allow for small RGB variations)
   if (!status) {
@@ -162,16 +162,28 @@ function determineStatusFromColor(rowFormatting: any): EventStatus {
         const match = colorStr.match(/rgb\((\d+),?\s*(\d+),?\s*(\d+)\)/);
         if (match) {
           const [_, r, g, b] = match.map(Number);
-          // Allow for small variations in RGB values (±5)
-          if (Math.abs(r - bgColor.red) <= 5 && 
-              Math.abs(g - bgColor.green) <= 5 && 
-              Math.abs(b - bgColor.blue) <= 5) {
+          // Allow for larger variations in RGB values (±30)
+          if (Math.abs(r - bgColor.red) <= 30 && 
+              Math.abs(g - bgColor.green) <= 30 && 
+              Math.abs(b - bgColor.blue) <= 30) {
             console.log(`Found approximate match: ${colorStr} -> ${mappedStatus}`);
             status = mappedStatus;
             break;
           }
         }
       }
+    }
+  }
+  
+  if (!status) {
+    console.log('No match found, checking color ranges...');
+    // Check for general color ranges
+    if (bgColor.red > 200 && bgColor.green < 100 && bgColor.blue < 100) {
+      status = 'cancelled';  // Reddish
+    } else if (bgColor.green > 150 && bgColor.red < 100 && bgColor.blue < 100) {
+      status = 'confirmed';  // Greenish
+    } else if (bgColor.red > 200 && bgColor.green > 150 && bgColor.blue < 100) {
+      status = 'pending';    // Yellowish/Orange
     }
   }
   
@@ -198,8 +210,8 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
     }
 
     const [date, title, room, promoter, capacity] = row;
-    if (!date || !title) {
-      console.log(`Skipping invalid row at index ${index + 1}: missing date or title`);
+    if (!date) {
+      console.log(`Skipping row ${index + 1}: no date`);
       return null;
     }
     
@@ -215,7 +227,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       
       console.log(`Row ${index + 2}: Final values:`, {
         date: formattedDate,
-        title: title.trim(),
+        title: title?.trim() || 'Untitled Event',  // Default title if none provided
         status,
         room: room?.trim(),
         promoter: promoter?.trim(),
@@ -224,7 +236,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
 
       return {
         date: formattedDate,
-        title: title.trim(),
+        title: title?.trim() || 'Untitled Event',  // Default title if none provided
         status,
         room: room?.trim() || '',
         promoter: promoter?.trim() || '',
@@ -236,8 +248,8 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       console.error(`Error processing row ${index + 2}:`, error);
       return null;
     }
-  }).filter((row): row is Event => row !== null);
+  }).filter(Boolean); // Remove null entries
 
-  console.log('Final events array:', JSON.stringify(events, null, 2));
+  console.log(`Successfully parsed ${events.length} events`);
   return events;
 }

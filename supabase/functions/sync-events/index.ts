@@ -48,10 +48,13 @@ serve(async (req) => {
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .not('id', 'is', null) // Delete all events
+      .gte('id', '00000000-0000-0000-0000-000000000000') // Delete all events
 
     if (deleteError) {
       console.error('Error clearing existing events:', deleteError)
+      console.error('Error details:', deleteError.details)
+      console.error('Error hint:', deleteError.hint)
+      console.error('Error code:', deleteError.code)
       throw new Error(`Failed to clear existing events: ${deleteError.message}`)
     }
 
@@ -74,6 +77,9 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('Error inserting events:', insertError)
+      console.error('Error details:', insertError.details)
+      console.error('Error hint:', insertError.hint)
+      console.error('Error code:', insertError.code)
       throw new Error(`Failed to insert events: ${insertError.message}`)
     }
 
