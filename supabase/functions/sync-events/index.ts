@@ -44,15 +44,19 @@ serve(async (req) => {
     console.log('Supabase client initialized')
 
     // Clear existing events before inserting new ones
+    console.log('Clearing existing events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all except placeholder if exists
+      .gt('id', 0) // Delete all events
 
     if (deleteError) {
       console.error('Error clearing existing events:', deleteError)
       throw new Error(`Failed to clear existing events: ${deleteError.message}`)
     }
+
+    // Wait a moment to ensure deletion is complete
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
     console.log(`Inserting ${events.length} events...`)
     const { error: insertError } = await supabase
@@ -60,7 +64,7 @@ serve(async (req) => {
       .insert(events.map(event => ({
         date: event.date,
         title: event.title,
-        status: event.status || 'pending',
+        status: event.status,
         is_recurring: event.is_recurring,
         room: event.room,
         promoter: event.promoter,
