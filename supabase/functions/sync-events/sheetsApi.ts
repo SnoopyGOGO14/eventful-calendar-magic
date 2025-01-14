@@ -72,7 +72,7 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   // Fetch formatting for status column (B)
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:B&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B2:B&includeGridData=true&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -88,7 +88,11 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
+  console.log('Raw formatting response:', JSON.stringify(formatting, null, 2));
+  
   const formattingArray = formatting?.sheets?.[0]?.data?.[0]?.rowData || [];
+  console.log('Formatting array length:', formattingArray.length);
+  console.log('First few formatting items:', JSON.stringify(formattingArray.slice(0, 3), null, 2));
   
   return {
     values: values.values || [],
@@ -177,13 +181,14 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
   console.log('Starting to parse sheet rows...');
   console.log(`Number of rows: ${values?.length || 0}`);
   console.log(`Number of formatting rows: ${formatting?.length || 0}`);
+  console.log('First few values:', JSON.stringify(values.slice(0, 3), null, 2));
 
   if (!values?.length) {
     console.log('No values found in sheet');
     return [];
   }
 
-  return values.slice(1).map((row, index) => {
+  const events = values.slice(1).map((row, index) => {
     if (!row || row.length < 1) {
       console.log(`Skipping empty row at index ${index + 1}`);
       return null;
@@ -201,6 +206,8 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       
       // Get formatting for this row (account for header)
       const rowFormatting = formatting[index];
+      console.log(`Row ${index + 2}: Formatting data:`, JSON.stringify(rowFormatting, null, 2));
+      
       const status = determineStatusFromColor(rowFormatting);
       
       console.log(`Row ${index + 2}: Final values:`, {
@@ -227,4 +234,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       return null;
     }
   }).filter((row): row is Event => row !== null);
+
+  console.log('Final events array:', JSON.stringify(events, null, 2));
+  return events;
 }
