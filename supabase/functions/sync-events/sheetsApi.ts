@@ -199,8 +199,8 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       const formattedDate = formatDate(date.trim());
       console.log(`Row ${index + 2}: Processing date=${date} -> ${formattedDate}`);
       
-      // Get formatting for this row (add 1 to account for header)
-      const rowFormatting = formatting[index + 1];
+      // Get formatting for this row (account for header)
+      const rowFormatting = formatting[index];
       const status = determineStatusFromColor(rowFormatting);
       
       console.log(`Row ${index + 2}: Final values:`, {
