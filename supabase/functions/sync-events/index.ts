@@ -14,14 +14,17 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Starting sync process...')
     const { spreadsheetId } = await req.json()
     if (!spreadsheetId) {
       throw new Error('Missing spreadsheetId in request body')
     }
 
-    console.log('Starting sync process...')
     console.log('Getting access token...')
     const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('Failed to get access token')
+    }
 
     console.log('Fetching sheet data...')
     const { values, formatting } = await fetchSheetData(spreadsheetId, accessToken)
@@ -40,8 +43,18 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     console.log('Supabase client initialized')
 
+    // Clear existing events before inserting new ones
+    const { error: deleteError } = await supabase
+      .from('events')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all except placeholder if exists
+
+    if (deleteError) {
+      console.error('Error clearing existing events:', deleteError)
+      throw new Error(`Failed to clear existing events: ${deleteError.message}`)
+    }
+
     console.log(`Inserting ${events.length} events...`)
-    console.log('Sample event:', JSON.stringify(events[0], null, 2))
     const { error: insertError } = await supabase
       .from('events')
       .insert(events.map(event => ({

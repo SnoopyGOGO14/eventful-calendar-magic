@@ -17,6 +17,40 @@ interface Event {
   is_recurring: boolean;
 }
 
+function formatDate(dateStr: string): string {
+  console.log('Formatting date:', dateStr);
+  
+  // If the date is already in YYYY-MM-DD format, return it as is
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateStr;
+  }
+
+  try {
+    // Remove any day names and extra spaces
+    const cleanDate = dateStr.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+/i, '').trim();
+    
+    // Parse the date assuming it's for 2025
+    const date = new Date(`${cleanDate}, 2025`);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date');
+    }
+    
+    // Format as YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    const formattedDate = `${year}-${month}-${day}`;
+    console.log(`Formatted date: ${dateStr} -> ${formattedDate}`);
+    return formattedDate;
+  } catch (error) {
+    console.error(`Error parsing date "${dateStr}":`, error);
+    throw new Error(`Invalid date format: ${dateStr}`);
+  }
+}
+
 export async function fetchSheetData(spreadsheetId: string, accessToken: string): Promise<SheetData> {
   console.log('Starting to fetch sheet data...');
   
@@ -36,9 +70,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     throw new Error(`Google Sheets API error: ${errorText}`);
   }
 
-  // Fetch formatting for status column (B)
+  // Fetch formatting for status column (G)
   const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:B&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!G:G&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -54,8 +88,6 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
 
   const values = await valuesResponse.json();
   const formatting = await formattingResponse.json();
-  
-  // Extract formatting array from response
   const formattingArray = formatting?.sheets?.[0]?.data?.[0]?.rowData || [];
   
   return {
@@ -141,55 +173,6 @@ function determineStatusFromColor(rowFormatting: any): EventStatus {
   return status;
 }
 
-function formatDate(dateStr: string): string {
-  // Convert various date formats to "2025-01-04"
-  const months: { [key: string]: string } = {
-    'January': '01', 'Janaury': '01',  // Handle common misspelling
-    'February': '02', 'Febuary': '02',  // Handle common misspelling
-    'March': '03',
-    'April': '04',
-    'May': '05',
-    'June': '06',
-    'July': '07',
-    'August': '08',
-    'September': '09',
-    'October': '10',
-    'November': '11',
-    'December': '12'
-  };
-
-  const parts = dateStr.split(' ');
-  
-  // Find the month part and day part
-  let monthPart = '';
-  let dayPart = '';
-  for (const part of parts) {
-    // Check for month
-    if (months[part]) {
-      monthPart = part;
-      continue;
-    }
-    
-    // Check for day with ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
-    const dayMatch = part.match(/^(\d+)(st|nd|rd|th)?$/);
-    if (dayMatch) {
-      dayPart = dayMatch[1];  // Extract just the number
-      continue;
-    }
-  }
-
-  if (!monthPart || !dayPart) {
-    console.error(`Could not parse date format: ${dateStr}`);
-    console.error(`Month part: ${monthPart}, Day part: ${dayPart}`);
-    throw new Error(`Could not parse date format: ${dateStr}`);
-  }
-
-  const month = months[monthPart];
-  const day = dayPart.padStart(2, '0');
-
-  return `2025-${month}-${day}`;
-}
-
 export function parseSheetRows(values: string[][], formatting: any[] = []): Event[] {
   console.log('Starting to parse sheet rows...');
   console.log(`Number of rows: ${values?.length || 0}`);
@@ -200,7 +183,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
     return [];
   }
 
-  return values.slice(1).map((row, index) => {  // Skip header row
+  return values.slice(1).map((row, index) => {
     if (!row || row.length < 1) {
       console.log(`Skipping empty row at index ${index + 1}`);
       return null;
@@ -212,20 +195,36 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       return null;
     }
     
-    // Get formatting for this row, default to pending if not found
-    const rowFormatting = formatting[index];  
-    const status = determineStatusFromColor(rowFormatting);
-    console.log(`Row ${index + 2}: date=${date}, title=${title}, status=${status}`);
+    try {
+      const formattedDate = formatDate(date.trim());
+      console.log(`Row ${index + 2}: Processing date=${date} -> ${formattedDate}`);
+      
+      // Get formatting for this row (add 1 to account for header)
+      const rowFormatting = formatting[index + 1];
+      const status = determineStatusFromColor(rowFormatting);
+      
+      console.log(`Row ${index + 2}: Final values:`, {
+        date: formattedDate,
+        title: title.trim(),
+        status,
+        room: room?.trim(),
+        promoter: promoter?.trim(),
+        capacity: capacity?.trim()
+      });
 
-    return {
-      date: formatDate(date.trim()),
-      title: title.trim(),
-      status,
-      room: room?.trim() || '',
-      promoter: promoter?.trim() || '',
-      capacity: capacity?.trim() || '',
-      _sheet_line_number: index + 2,  
-      is_recurring: false
-    };
+      return {
+        date: formattedDate,
+        title: title.trim(),
+        status,
+        room: room?.trim() || '',
+        promoter: promoter?.trim() || '',
+        capacity: capacity?.trim() || '',
+        _sheet_line_number: index + 2,
+        is_recurring: false
+      };
+    } catch (error) {
+      console.error(`Error processing row ${index + 2}:`, error);
+      return null;
+    }
   }).filter((row): row is Event => row !== null);
 }
