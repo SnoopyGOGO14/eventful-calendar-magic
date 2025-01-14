@@ -54,9 +54,9 @@ function formatDate(dateStr: string): string {
 export async function fetchSheetData(spreadsheetId: string, accessToken: string): Promise<SheetData> {
   console.log('Starting to fetch sheet data...');
   
-  // Fetch values (columns B through F)
-  const valuesResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'STUDIO 338 - 2025'!B:F`,
+  // Fetch both values and formatting in a single call
+  const response = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:F&includeGridData=true`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -64,39 +64,42 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     }
   );
 
-  if (!valuesResponse.ok) {
-    const errorText = await valuesResponse.text();
-    console.error(`Google Sheets API error fetching values: ${errorText}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Google Sheets API error: ${errorText}`);
     throw new Error(`Google Sheets API error: ${errorText}`);
   }
 
-  // Fetch formatting for status column (B)
-  const formattingResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B2:B&includeGridData=true&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
-    {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    }
-  );
-
-  if (!formattingResponse.ok) {
-    const errorText = await formattingResponse.text();
-    console.error(`Google Sheets API formatting error: ${errorText}`);
-    throw new Error(`Google Sheets API formatting error: ${errorText}`);
-  }
-
-  const values = await valuesResponse.json();
-  const formatting = await formattingResponse.json();
-  console.log('Raw formatting response:', JSON.stringify(formatting, null, 2));
+  const data = await response.json();
+  console.log('Raw API response:', JSON.stringify(data, null, 2));
   
-  const formattingArray = formatting?.sheets?.[0]?.data?.[0]?.rowData || [];
-  console.log('Formatting array length:', formattingArray.length);
-  console.log('First few formatting items:', JSON.stringify(formattingArray.slice(0, 3), null, 2));
+  // Extract values and formatting
+  const sheet = data.sheets?.[0];
+  const gridData = sheet?.data?.[0];
+  
+  if (!gridData) {
+    throw new Error('No grid data found in response');
+  }
+  
+  // Convert the grid data into our format
+  const values = gridData.rowData?.map(row => 
+    row.values?.map(cell => cell.formattedValue || '')
+  ) || [];
+  
+  const formatting = gridData.rowData?.map(row => ({
+    values: [{
+      userEnteredFormat: {
+        backgroundColor: row.values?.[0]?.userEnteredFormat?.backgroundColor
+      }
+    }]
+  })) || [];
+  
+  console.log('Extracted values:', JSON.stringify(values.slice(0, 3), null, 2));
+  console.log('Extracted formatting:', JSON.stringify(formatting.slice(0, 3), null, 2));
   
   return {
-    values: values.values || [],
-    formatting: formattingArray
+    values: values,
+    formatting: formatting
   };
 }
 
