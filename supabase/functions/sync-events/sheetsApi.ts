@@ -98,22 +98,19 @@ function formatDate(dateStr: string, previousDate: string | null = null, sheetYe
       throw new Error(DateParsingError.INVALID_DAY);
     }
 
-    // Year transition logic using sheet year as base
+    // Simplified year handling - use sheet year as base
     let year = parseInt(sheetYear);
-    if (previousDate) {
-      const prevDate = new Date(previousDate);
-      if (parsedDate.getMonth() < prevDate.getMonth() ||
-          (parsedDate.getMonth() === prevDate.getMonth() && 
-           parsedDate.getDate() < prevDate.getDate())) {
-        year = prevDate.getFullYear() + 1;
-      } else {
-        year = prevDate.getFullYear();
-      }
+    
+    // If we're in December and the sheet year is next year, use current year
+    if (parsedDate.getMonth() === 11 && year > new Date().getFullYear()) {
+      year = year - 1;
     }
 
+    // Set the year and format the date
+    const finalDate = setYear(parsedDate, year);
+    
     // Validate future dates
     const maxDate = new Date('2026-12-31');
-    const finalDate = setYear(parsedDate, year);
     if (finalDate > maxDate) {
       throw new Error(DateParsingError.FUTURE_DATE);
     }
@@ -121,7 +118,6 @@ function formatDate(dateStr: string, previousDate: string | null = null, sheetYe
     context.computedYear = year;
     const formattedDate = format(finalDate, 'yyyy-MM-dd');
 
-    // Log successful parsing
     console.log('Date parsing successful:', {
       ...context,
       finalDate: formattedDate
@@ -130,7 +126,6 @@ function formatDate(dateStr: string, previousDate: string | null = null, sheetYe
     return formattedDate;
 
   } catch (error) {
-    // Enhanced error logging
     context.error = error instanceof Error ? error.message as DateParsingError : DateParsingError.PARSE_ERROR;
     console.error('Date parsing failed:', context);
     throw new Error(`Failed to parse date "${dateStr}": ${context.error}`);
