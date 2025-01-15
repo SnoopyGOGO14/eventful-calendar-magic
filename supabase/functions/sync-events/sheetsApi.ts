@@ -17,8 +17,8 @@ interface Event {
   is_recurring: boolean;
 }
 
-function formatDate(dateStr: string): string {
-  console.log('Formatting date:', dateStr);
+function formatDate(dateStr: string, previousDate: string | null = null): string {
+  console.log('Formatting date:', dateStr, 'Previous date:', previousDate);
   
   // If the date is already in YYYY-MM-DD format, return it as is
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -29,8 +29,24 @@ function formatDate(dateStr: string): string {
     // Remove any day names and extra spaces
     const cleanDate = dateStr.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+/i, '').trim();
     
-    // Parse the date assuming it's for 2025
-    const date = new Date(`${cleanDate}, 2025`);
+    // Default to 2025
+    let year = 2025;
+    
+    // If we have a previous date, check if we need to increment the year
+    if (previousDate) {
+      const prevDate = new Date(previousDate);
+      const currentDate = new Date(`${cleanDate}, 2025`); // Temporarily use 2025
+      
+      // If this date is earlier in the year than the previous date, it must be next year
+      if (currentDate.getMonth() < prevDate.getMonth() || 
+          (currentDate.getMonth() === prevDate.getMonth() && currentDate.getDate() < prevDate.getDate())) {
+        year = 2026;
+        console.log(`Date ${cleanDate} is earlier than previous date ${previousDate}, using year ${year}`);
+      }
+    }
+    
+    // Parse the date with the determined year
+    const date = new Date(`${cleanDate}, ${year}`);
     
     // Check if the date is valid
     if (isNaN(date.getTime())) {
@@ -38,7 +54,6 @@ function formatDate(dateStr: string): string {
     }
     
     // Format as YYYY-MM-DD
-    const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     
@@ -52,11 +67,11 @@ function formatDate(dateStr: string): string {
 }
 
 export async function fetchSheetData(spreadsheetId: string, accessToken: string): Promise<SheetData> {
-  console.log('Starting to fetch sheet data...');
+  console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
-  // Fetch both values and formatting in a single call
+  // Fetch data from both 2025 and 2026 sheets
   const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!B:F&includeGridData=true`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!A:F&ranges='STUDIO 338 - 2026'!A:F&includeGridData=true`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -71,172 +86,297 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   }
 
   const data = await response.json();
-  console.log('Raw API response:', JSON.stringify(data, null, 2));
+  console.log('Sheet info:', {
+    id: data.spreadsheetId,
+    title: data.properties?.title,
+    sheets: data.sheets?.map(s => s.properties?.title)
+  });
   
-  // Extract values and formatting
-  const sheet = data.sheets?.[0];
-  const gridData = sheet?.data?.[0];
+  // Process both sheets
+  const allValues: string[][] = [];
+  const allFormatting: any[] = [];
   
-  if (!gridData) {
-    throw new Error('No grid data found in response');
+  data.sheets?.forEach(sheet => {
+    const gridData = sheet?.data?.[0];
+    if (gridData) {
+      // Extract year from sheet name
+      const yearMatch = sheet.properties?.title.match(/\d{4}/);
+      const sheetYear = yearMatch ? yearMatch[0] : '2025';
+      
+      // Convert the grid data into our format
+      const values = gridData.rowData?.map(row => {
+        const cells = row.values?.map(cell => cell.formattedValue || '');
+        // Add the sheet year as metadata
+        cells._sheetYear = sheetYear;
+        return cells;
+      }) || [];
+      
+      const formatting = gridData.rowData?.map(row => ({
+        values: [{
+          userEnteredFormat: {
+            backgroundColor: row.values?.[0]?.userEnteredFormat?.backgroundColor
+          }
+        }]
+      })) || [];
+      
+      allValues.push(...values);
+      allFormatting.push(...formatting);
+    }
+  });
+  
+  if (!allValues.length) {
+    throw new Error('No data found in sheets');
   }
   
-  // Convert the grid data into our format
-  const values = gridData.rowData?.map(row => 
-    row.values?.map(cell => cell.formattedValue || '')
-  ) || [];
-  
-  const formatting = gridData.rowData?.map(row => ({
-    values: [{
-      userEnteredFormat: {
-        backgroundColor: row.values?.[0]?.userEnteredFormat?.backgroundColor
-      }
-    }]
-  })) || [];
-  
-  console.log('Extracted values:', JSON.stringify(values.slice(0, 3), null, 2));
-  console.log('Extracted formatting:', JSON.stringify(formatting.slice(0, 3), null, 2));
-  
-  return {
-    values: values,
-    formatting: formatting
-  };
+  console.log(`Found total ${allValues.length} rows of data`);
+  return { values: allValues, formatting: allFormatting };
 }
 
-function getRowBackgroundColor(rowFormatting: any) {
-  console.log('Processing row formatting:', JSON.stringify(rowFormatting, null, 2));
-  
-  if (!rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor) {
-    console.log('No background color found for row');
+// Color Types and Interfaces
+type EventStatus = 'confirmed' | 'cancelled' | 'pending';
+
+interface RGBColor {
+  red: number;
+  green: number;
+  blue: number;
+}
+
+interface ColorMatchResult {
+  status: EventStatus;
+  confidence: number;  // 0-1, where 1 is exact match
+  method: 'exact' | 'tolerance' | 'range' | 'fallback';
+}
+
+// Reference colors with multiple formats
+const STATUS_COLORS = {
+  confirmed: {
+    rgb: { red: 147, green: 196, blue: 125 },  // #93c47d
+    hex: '#93c47d',
+    ranges: {
+      red: { min: 130, max: 160 },
+      green: { min: 180, max: 210 },
+      blue: { min: 110, max: 140 }
+    }
+  },
+  cancelled: {
+    rgb: { red: 224, green: 102, blue: 102 },  // #e06666
+    hex: '#e06666',
+    ranges: {
+      red: { min: 210, max: 240 },
+      green: { min: 90, max: 120 },
+      blue: { min: 90, max: 120 }
+    }
+  },
+  pending: {
+    rgb: { red: 255, green: 217, blue: 102 },  // #ffd966
+    hex: '#ffd966',
+    ranges: {
+      red: { min: 240, max: 255 },
+      green: { min: 200, max: 230 },
+      blue: { min: 90, max: 120 }
+    }
+  },
+  pendingAlt: {
+    rgb: { red: 255, green: 153, blue: 0 },    // #ff9900
+    hex: '#ff9900',
+    ranges: {
+      red: { min: 240, max: 255 },
+      green: { min: 140, max: 170 },
+      blue: { min: 0, max: 20 }
+    }
+  }
+} as const;
+
+// Color Utility Functions
+function normalizeColor(color: any): RGBColor | null {
+  try {
+    // Handle Google Sheets 0-1 format
+    if (color && typeof color.red === 'number' && color.red <= 1) {
+      return {
+        red: Math.round(color.red * 255),
+        green: Math.round(color.green * 255),
+        blue: Math.round(color.blue * 255)
+      };
+    }
+    
+    // Handle direct RGB values
+    if (color && typeof color.red === 'number' && color.red > 1) {
+      return {
+        red: Math.round(color.red),
+        green: Math.round(color.green),
+        blue: Math.round(color.blue)
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Color normalization failed:', error);
     return null;
   }
-  
-  const bgColor = rowFormatting.values[0].userEnteredFormat.backgroundColor;
-  console.log('Raw background color from Google Sheets:', JSON.stringify(bgColor, null, 2));
-  
-  // Convert RGB values to 0-255 range
-  const r = Math.round(bgColor.red * 255);
-  const g = Math.round(bgColor.green * 255);
-  const b = Math.round(bgColor.blue * 255);
-  
-  console.log(`Converted RGB values: R:${r} G:${g} B:${b}`);
-  
-  // Check if it's white or no color (skip)
-  if (!bgColor.red || !bgColor.green || !bgColor.blue || 
-      (bgColor.red === 1 && bgColor.green === 1 && bgColor.blue === 1)) {
-    console.log('Skipping white or empty cell');
-    return null;
+}
+
+function colorToHex(color: RGBColor): string {
+  return `#${color.red.toString(16).padStart(2, '0')}${color.green.toString(16).padStart(2, '0')}${color.blue.toString(16).padStart(2, '0')}`.toLowerCase();
+}
+
+function getColorDistance(color1: RGBColor, color2: RGBColor): number {
+  return Math.sqrt(
+    Math.pow(color1.red - color2.red, 2) +
+    Math.pow(color1.green - color2.green, 2) +
+    Math.pow(color1.blue - color2.blue, 2)
+  );
+}
+
+function isInColorRange(color: RGBColor, ranges: typeof STATUS_COLORS[keyof typeof STATUS_COLORS]['ranges']): boolean {
+  return (
+    color.red >= ranges.red.min && color.red <= ranges.red.max &&
+    color.green >= ranges.green.min && color.green <= ranges.green.max &&
+    color.blue >= ranges.blue.min && color.blue <= ranges.blue.max
+  );
+}
+
+function matchColor(color: RGBColor): ColorMatchResult {
+  const TOLERANCE = 10;
+  const matches: ColorMatchResult[] = [];
+
+  // Log the color being matched
+  console.log('Matching color:', {
+    rgb: `${color.red},${color.green},${color.blue}`,
+    hex: colorToHex(color)
+  });
+
+  // Try exact matches with tolerance
+  Object.entries(STATUS_COLORS).forEach(([key, reference]) => {
+    const distance = getColorDistance(color, reference.rgb);
+    const confidence = Math.max(0, 1 - (distance / (TOLERANCE * 3)));
+    
+    if (distance <= TOLERANCE) {
+      matches.push({
+        status: key === 'pendingAlt' ? 'pending' : key as EventStatus,
+        confidence,
+        method: distance === 0 ? 'exact' : 'tolerance'
+      });
+    }
+  });
+
+  // If we found matches within tolerance, return the best one
+  if (matches.length > 0) {
+    const bestMatch = matches.reduce((a, b) => a.confidence > b.confidence ? a : b);
+    console.log('Found match within tolerance:', bestMatch);
+    return bestMatch;
   }
 
-  return { red: r, green: g, blue: b };
+  // Try range-based matching
+  for (const [key, reference] of Object.entries(STATUS_COLORS)) {
+    if (isInColorRange(color, reference.ranges)) {
+      const result = {
+        status: key === 'pendingAlt' ? 'pending' : key as EventStatus,
+        confidence: 0.7,
+        method: 'range'
+      };
+      console.log('Found match within ranges:', result);
+      return result;
+    }
+  }
+
+  // Fallback to basic RGB analysis
+  const { red, green, blue } = color;
+  if (green > 140 && green > red && green > blue) {
+    return { status: 'confirmed', confidence: 0.5, method: 'fallback' };
+  }
+  if (red > 200 && red > green && red > blue) {
+    return { status: 'cancelled', confidence: 0.5, method: 'fallback' };
+  }
+  if (red > 200 && green > 140 && blue < 120) {
+    return { status: 'pending', confidence: 0.5, method: 'fallback' };
+  }
+
+  // Ultimate fallback
+  return { status: 'pending', confidence: 0, method: 'fallback' };
 }
 
 function determineStatusFromColor(rowFormatting: any): EventStatus {
-  const bgColor = getRowBackgroundColor(rowFormatting);
-  if (!bgColor) {
-    console.log('No background color, defaulting to pending');
+  try {
+    // Extract and validate color from formatting
+    const backgroundColor = rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor;
+    if (!backgroundColor) {
+      console.log('No background color found in formatting');
+      return 'pending';
+    }
+
+    // Normalize the color
+    const normalizedColor = normalizeColor(backgroundColor);
+    if (!normalizedColor) {
+      console.log('Color normalization failed');
+      return 'pending';
+    }
+
+    // Log the normalized color
+    console.log('Normalized color:', {
+      raw: backgroundColor,
+      normalized: normalizedColor,
+      hex: colorToHex(normalizedColor)
+    });
+
+    // Match the color and get the status
+    const result = matchColor(normalizedColor);
+    
+    // Log the matching result
+    console.log('Color match result:', {
+      status: result.status,
+      confidence: result.confidence,
+      method: result.method
+    });
+
+    return result.status;
+  } catch (error) {
+    console.error('Error in color status determination:', error);
     return 'pending';
   }
-  
-  // Generate all possible color formats
-  const rgbWithSpaces = `rgb(${bgColor.red}, ${bgColor.green}, ${bgColor.blue})`;
-  const rgbWithoutSpaces = `rgb(${bgColor.red},${bgColor.green},${bgColor.blue})`;
-  const hex = `#${bgColor.red.toString(16).padStart(2, '0')}${bgColor.green.toString(16).padStart(2, '0')}${bgColor.blue.toString(16).padStart(2, '0')}`.toUpperCase();
-  
-  console.log('Color formats to match:', {
-    rgbWithSpaces,
-    rgbWithoutSpaces,
-    hex
-  });
-  console.log('Available color mappings:', SPREADSHEET_CELL_COLORS);
-  
-  // Try all formats
-  let status = SPREADSHEET_CELL_COLORS[rgbWithSpaces] || 
-               SPREADSHEET_CELL_COLORS[rgbWithoutSpaces];
-               
-  // If no match found, try approximate matching (allow for small RGB variations)
-  if (!status) {
-    console.log('No exact match found, trying approximate matching...');
-    for (const [colorStr, mappedStatus] of Object.entries(SPREADSHEET_CELL_COLORS)) {
-      if (colorStr.startsWith('rgb')) {
-        const match = colorStr.match(/rgb\((\d+),?\s*(\d+),?\s*(\d+)\)/);
-        if (match) {
-          const [_, r, g, b] = match.map(Number);
-          // Allow for larger variations in RGB values (±30)
-          if (Math.abs(r - bgColor.red) <= 30 && 
-              Math.abs(g - bgColor.green) <= 30 && 
-              Math.abs(b - bgColor.blue) <= 30) {
-            console.log(`Found approximate match: ${colorStr} -> ${mappedStatus}`);
-            status = mappedStatus;
-            break;
-          }
-        }
-      }
-    }
-  }
-  
-  if (!status) {
-    console.log('No match found, checking color ranges...');
-    // Check for general color ranges
-    if (bgColor.red > 200 && bgColor.green < 100 && bgColor.blue < 100) {
-      status = 'cancelled';  // Reddish
-    } else if (bgColor.green > 150 && bgColor.red < 100 && bgColor.blue < 100) {
-      status = 'confirmed';  // Greenish
-    } else if (bgColor.red > 200 && bgColor.green > 150 && bgColor.blue < 100) {
-      status = 'pending';    // Yellowish/Orange
-    }
-  }
-  
-  status = status || 'pending';
-  console.log('Final determined status:', status);
-  return status;
 }
 
 export function parseSheetRows(values: string[][], formatting: any[] = []): Event[] {
   console.log('Starting to parse sheet rows...');
   console.log(`Number of rows: ${values?.length || 0}`);
-  console.log(`Number of formatting rows: ${formatting?.length || 0}`);
-  console.log('First few values:', JSON.stringify(values.slice(0, 3), null, 2));
 
   if (!values?.length) {
     console.log('No values found in sheet');
     return [];
   }
 
+  let previousDate: string | null = null;
   const events = values.slice(1).map((row, index) => {
-    if (!row || row.length < 1) {
+    // Skip completely empty rows
+    if (!row || row.length < 1 || !row.some(cell => cell?.trim())) {
       console.log(`Skipping empty row at index ${index + 1}`);
       return null;
     }
 
     const [date, title, room, promoter, capacity] = row;
-    if (!date) {
-      console.log(`Skipping row ${index + 1}: no date`);
+    
+    // Skip if no date or title
+    if (!date?.trim() || !title?.trim()) {
+      console.log(`Skipping row ${index + 1}: missing date or title`);
       return null;
     }
     
     try {
-      const formattedDate = formatDate(date.trim());
-      console.log(`Row ${index + 2}: Processing date=${date} -> ${formattedDate}`);
+      // Pass the previous date to determine if we need to increment the year
+      const formattedDate = formatDate(date.trim(), previousDate);
+      previousDate = formattedDate; // Store this date for next iteration
       
-      // Get formatting for this row (account for header)
-      const rowFormatting = formatting[index];
-      console.log(`Row ${index + 2}: Formatting data:`, JSON.stringify(rowFormatting, null, 2));
-      
+      const rowFormatting = formatting[index + 1];
       const status = determineStatusFromColor(rowFormatting);
       
-      console.log(`Row ${index + 2}: Final values:`, {
+      console.log(`Row ${index + 2}: Processed`, {
         date: formattedDate,
-        title: title?.trim() || 'Untitled Event',  // Default title if none provided
-        status,
-        room: room?.trim(),
-        promoter: promoter?.trim(),
-        capacity: capacity?.trim()
+        title: title.trim(),
+        status
       });
 
       return {
         date: formattedDate,
-        title: title?.trim() || 'Untitled Event',  // Default title if none provided
+        title: title.trim(),
         status,
         room: room?.trim() || '',
         promoter: promoter?.trim() || '',
@@ -248,7 +388,7 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       console.error(`Error processing row ${index + 2}:`, error);
       return null;
     }
-  }).filter(Boolean); // Remove null entries
+  }).filter(Boolean);
 
   console.log(`Successfully parsed ${events.length} events`);
   return events;
