@@ -31,15 +31,20 @@ export const CalendarGrid = ({
     console.log('Looking for events on:', formattedTargetDate);
     
     const matchingEvents = events.filter(event => {
-      const eventDate = format(new Date(event.date), 'yyyy-MM-dd');
-      const matches = eventDate === formattedTargetDate;
+      // Direct string comparison since event.date is already in YYYY-MM-DD format
+      const matches = event.date === formattedTargetDate;
       if (matches) {
         console.log('Found matching event:', event);
       }
       return matches;
     });
 
-    console.log(`Found ${matchingEvents.length} events for ${formattedTargetDate}`);
+    if (matchingEvents.length > 0) {
+      console.log(`Found ${matchingEvents.length} events for ${formattedTargetDate}:`, matchingEvents);
+    } else {
+      console.log(`No events found for ${formattedTargetDate}`);
+    }
+    
     return matchingEvents;
   };
 

@@ -48,7 +48,7 @@ serve(async (req) => {
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .gte('id', '00000000-0000-0000-0000-000000000000') // Delete all events
+      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all events
 
     if (deleteError) {
       console.error('Error clearing existing events:', deleteError)
@@ -62,18 +62,19 @@ serve(async (req) => {
     await new Promise(resolve => setTimeout(resolve, 1000))
 
     console.log(`Inserting ${events.length} events...`)
-    const { error: insertError } = await supabase
+    const { error: insertError, data: insertedData } = await supabase
       .from('events')
       .insert(events.map(event => ({
         date: event.date,
         title: event.title,
         status: event.status,
         is_recurring: event.is_recurring,
-        room: event.room,
-        promoter: event.promoter,
-        capacity: event.capacity,
+        room: event.room || null,
+        promoter: event.promoter || null,
+        capacity: event.capacity || null,
         _sheet_line_number: event._sheet_line_number
       })))
+      .select()
 
     if (insertError) {
       console.error('Error inserting events:', insertError)
@@ -82,6 +83,12 @@ serve(async (req) => {
       console.error('Error code:', insertError.code)
       throw new Error(`Failed to insert events: ${insertError.message}`)
     }
+
+    console.log('Successfully inserted new events:', {
+      count: insertedData?.length || 0,
+      firstEvent: insertedData?.[0],
+      lastEvent: insertedData?.[insertedData.length - 1]
+    })
 
     console.log('Successfully inserted new events')
     return new Response(
