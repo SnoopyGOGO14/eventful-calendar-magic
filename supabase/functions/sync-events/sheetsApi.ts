@@ -12,6 +12,28 @@ interface Event {
   is_recurring: boolean;
 }
 
+interface RGBColor {
+  red: number;
+  green: number;
+  blue: number;
+}
+
+interface ColorMatchResult {
+  status: Event['status'];
+  confidence: number;  // 0-1, where 1 is exact match
+  method: 'exact' | 'tolerance' | 'range' | 'fallback';
+}
+
+interface ColorReference {
+  rgb: RGBColor;
+  hex: string;
+  ranges: {
+    red: { min: number; max: number };
+    green: { min: number; max: number };
+    blue: { min: number; max: number };
+  };
+}
+
 // Constants for date parsing
 const DATE_FORMATS = Object.freeze([
   'MMMM d',           // "December 28"
@@ -132,6 +154,185 @@ function formatDate(dateStr: string, previousDate: string | null = null, sheetYe
   }
 }
 
+const STATUS_COLORS: Record<Event['status'] | 'pendingAlt', ColorReference> = {
+  confirmed: {
+    rgb: { red: 147, green: 196, blue: 125 },  // #93c47d
+    hex: '#93c47d',
+    ranges: {
+      red: { min: 130, max: 160 },
+      green: { min: 180, max: 210 },
+      blue: { min: 110, max: 140 }
+    }
+  },
+  cancelled: {
+    rgb: { red: 224, green: 102, blue: 102 },  // #e06666
+    hex: '#e06666',
+    ranges: {
+      red: { min: 210, max: 240 },
+      green: { min: 90, max: 120 },
+      blue: { min: 90, max: 120 }
+    }
+  },
+  pending: {
+    rgb: { red: 255, green: 217, blue: 102 },  // #ffd966
+    hex: '#ffd966',
+    ranges: {
+      red: { min: 240, max: 255 },
+      green: { min: 200, max: 230 },
+      blue: { min: 90, max: 120 }
+    }
+  },
+  pendingAlt: {
+    rgb: { red: 255, green: 153, blue: 0 },    // #ff9900
+    hex: '#ff9900',
+    ranges: {
+      red: { min: 240, max: 255 },
+      green: { min: 140, max: 170 },
+      blue: { min: 0, max: 20 }
+    }
+  }
+};
+
+function normalizeColor(color: any): RGBColor | null {
+  try {
+    if (color && typeof color.red === 'number' && color.red <= 1) {
+      return {
+        red: Math.round(color.red * 255),
+        green: Math.round(color.green * 255),
+        blue: Math.round(color.blue * 255)
+      };
+    }
+    
+    if (color && typeof color.red === 'number' && color.red > 1) {
+      return {
+        red: Math.round(color.red),
+        green: Math.round(color.green),
+        blue: Math.round(color.blue)
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Color normalization failed:', error);
+    return null;
+  }
+}
+
+function colorToHex(color: RGBColor): string {
+  return `#${color.red.toString(16).padStart(2, '0')}${color.green.toString(16).padStart(2, '0')}${color.blue.toString(16).padStart(2, '0')}`.toLowerCase();
+}
+
+function getColorDistance(color1: RGBColor, color2: RGBColor): number {
+  return Math.sqrt(
+    Math.pow(color1.red - color2.red, 2) +
+    Math.pow(color1.green - color2.green, 2) +
+    Math.pow(color1.blue - color2.blue, 2)
+  );
+}
+
+function isInColorRange(color: RGBColor, ranges: ColorReference['ranges']): boolean {
+  return (
+    color.red >= ranges.red.min && color.red <= ranges.red.max &&
+    color.green >= ranges.green.min && color.green <= ranges.green.max &&
+    color.blue >= ranges.blue.min && color.blue <= ranges.blue.max
+  );
+}
+
+function matchColor(color: RGBColor): ColorMatchResult {
+  const TOLERANCE = 10;
+  const matches: ColorMatchResult[] = [];
+
+  // Log the color being matched
+  console.log('Matching color:', {
+    rgb: `${color.red},${color.green},${color.blue}`,
+    hex: colorToHex(color)
+  });
+
+  // Try exact matches with tolerance
+  Object.entries(STATUS_COLORS).forEach(([key, reference]) => {
+    const distance = getColorDistance(color, reference.rgb);
+    const confidence = Math.max(0, 1 - (distance / (TOLERANCE * 3)));
+    
+    if (distance <= TOLERANCE) {
+      matches.push({
+        status: key === 'pendingAlt' ? 'pending' : key as Event['status'],
+        confidence,
+        method: distance === 0 ? 'exact' : 'tolerance'
+      });
+    }
+  });
+
+  // If we found matches within tolerance, return the best one
+  if (matches.length > 0) {
+    const bestMatch = matches.reduce((a, b) => a.confidence > b.confidence ? a : b);
+    console.log('Found match within tolerance:', bestMatch);
+    return bestMatch;
+  }
+
+  // Try range-based matching
+  for (const [key, reference] of Object.entries(STATUS_COLORS)) {
+    if (isInColorRange(color, reference.ranges)) {
+      const result = {
+        status: key === 'pendingAlt' ? 'pending' : key as Event['status'],
+        confidence: 0.7,
+        method: 'range'
+      };
+      console.log('Found match within ranges:', result);
+      return result;
+    }
+  }
+
+  // Fallback to basic RGB analysis
+  const { red, green, blue } = color;
+  if (green > 140 && green > red && green > blue) {
+    return { status: 'confirmed', confidence: 0.5, method: 'fallback' };
+  }
+  if (red > 200 && red > green && red > blue) {
+    return { status: 'cancelled', confidence: 0.5, method: 'fallback' };
+  }
+  if (red > 200 && green > 140 && blue < 120) {
+    return { status: 'pending', confidence: 0.5, method: 'fallback' };
+  }
+
+  // Ultimate fallback
+  return { status: 'pending', confidence: 0, method: 'fallback' };
+}
+
+function determineStatusFromColor(rowFormatting: any): Event['status'] {
+  try {
+    const backgroundColor = rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor;
+    if (!backgroundColor) {
+      console.log('No background color found in formatting');
+      return 'pending';
+    }
+
+    const normalizedColor = normalizeColor(backgroundColor);
+    if (!normalizedColor) {
+      console.log('Color normalization failed');
+      return 'pending';
+    }
+
+    console.log('Normalized color:', {
+      raw: backgroundColor,
+      normalized: normalizedColor,
+      hex: colorToHex(normalizedColor)
+    });
+
+    const result = matchColor(normalizedColor);
+    console.log('Color match result:', {
+      status: result.status,
+      confidence: result.confidence,
+      method: result.method
+    });
+
+    return result.status;
+
+  } catch (error) {
+    console.error('Error determining color status:', error);
+    return 'pending';
+  }
+}
+
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
   console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
@@ -226,25 +427,8 @@ export function parseSheetRows(values: string[][], formatting: any[] = []): Even
       previousDate = formattedDate;
       
       const rowFormatting = formatting[index + 1];
-      const backgroundColor = rowFormatting?.values?.[0]?.userEnteredFormat?.backgroundColor;
+      const status = determineStatusFromColor(rowFormatting);
       
-      // Determine status based on background color
-      let status: 'confirmed' | 'pending' | 'cancelled' = 'pending';
-      
-      if (backgroundColor) {
-        const { red, green, blue } = backgroundColor;
-        const rgbStr = `rgb(${Math.round(red * 255)},${Math.round(green * 255)},${Math.round(blue * 255)})`;
-        
-        // Match colors with some tolerance
-        if (Math.abs(red * 255 - 67) < 10 && Math.abs(green * 255 - 160) < 10 && Math.abs(blue * 255 - 71) < 10) {
-          status = 'confirmed';
-        } else if (Math.abs(red * 255 - 234) < 10 && Math.abs(green * 255 - 67) < 10 && Math.abs(blue * 255 - 53) < 10) {
-          status = 'cancelled';
-        }
-        
-        console.log(`Color match for row ${index + 2}:`, { rgbStr, status });
-      }
-
       console.log(`Row ${index + 2}: Processed`, {
         date: formattedDate,
         title: title.trim(),
