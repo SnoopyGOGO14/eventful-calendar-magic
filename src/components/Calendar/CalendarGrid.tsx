@@ -22,10 +22,25 @@ export const CalendarGrid = ({
   const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
   const getEventsForDate = (date: Date): Event[] => {
-    if (!events) return [];
-    return events.filter(event => 
-      format(new Date(event.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-    );
+    if (!events) {
+      console.log('No events array provided');
+      return [];
+    }
+    
+    const formattedTargetDate = format(date, 'yyyy-MM-dd');
+    console.log('Looking for events on:', formattedTargetDate);
+    
+    const matchingEvents = events.filter(event => {
+      const eventDate = format(new Date(event.date), 'yyyy-MM-dd');
+      const matches = eventDate === formattedTargetDate;
+      if (matches) {
+        console.log('Found matching event:', event);
+      }
+      return matches;
+    });
+
+    console.log(`Found ${matchingEvents.length} events for ${formattedTargetDate}`);
+    return matchingEvents;
   };
 
   // Get the first day of the grid (Monday of the first week)

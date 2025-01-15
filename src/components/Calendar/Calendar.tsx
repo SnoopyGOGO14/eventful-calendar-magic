@@ -26,6 +26,8 @@ export const Calendar = () => {
   const queryClient = useQueryClient();
   const { events = [], isLoading } = useCalendarData();
 
+  console.log('Calendar component received events:', events);
+
   const getCurrentDisplayMonth = () => {
     const now = new Date();
     // If we're in December 2024, show December 2024
