@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Your spreadsheet ID from the Apps Script
-SPREADSHEET_ID="18KbXdfe2EfjtP3YahNRs1uJauMoK0yZsJCwzeCBu1kc"
+SPREADSHEET_ID="10Hj8OsJemFkmRbu-EGGOBnFUKAh8FMhPWsvjuSl6okw"
 
 # Call the sync-events function
 curl -i -X POST \
