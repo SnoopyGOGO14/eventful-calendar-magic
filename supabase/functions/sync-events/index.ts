@@ -44,22 +44,15 @@ serve(async (req) => {
     console.log('Supabase client initialized')
 
     // Clear existing events before inserting new ones
-    console.log('Clearing existing events...')
     const { error: deleteError } = await supabase
       .from('events')
       .delete()
-      .gte('id', '00000000-0000-0000-0000-000000000000') // Delete all events
+      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all except placeholder if exists
 
     if (deleteError) {
       console.error('Error clearing existing events:', deleteError)
-      console.error('Error details:', deleteError.details)
-      console.error('Error hint:', deleteError.hint)
-      console.error('Error code:', deleteError.code)
       throw new Error(`Failed to clear existing events: ${deleteError.message}`)
     }
-
-    // Wait a moment to ensure deletion is complete
-    await new Promise(resolve => setTimeout(resolve, 1000))
 
     console.log(`Inserting ${events.length} events...`)
     const { error: insertError } = await supabase
@@ -67,7 +60,7 @@ serve(async (req) => {
       .insert(events.map(event => ({
         date: event.date,
         title: event.title,
-        status: event.status,
+        status: event.status || 'pending',
         is_recurring: event.is_recurring,
         room: event.room,
         promoter: event.promoter,
@@ -77,9 +70,6 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('Error inserting events:', insertError)
-      console.error('Error details:', insertError.details)
-      console.error('Error hint:', insertError.hint)
-      console.error('Error code:', insertError.code)
       throw new Error(`Failed to insert events: ${insertError.message}`)
     }
 
