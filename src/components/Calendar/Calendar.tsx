@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { NoteModal } from './NoteModal';
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarGrid } from './CalendarGrid';
@@ -20,7 +20,7 @@ export interface Event {
 }
 
 export const Calendar = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1)); // January 2025
+  const [currentDate, setCurrentDate] = useState(getCurrentDisplayMonth());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const queryClient = useQueryClient();
@@ -28,23 +28,26 @@ export const Calendar = () => {
 
   console.log('Calendar component received events:', events);
 
-  const getCurrentDisplayMonth = () => {
+  function getCurrentDisplayMonth() {
     const now = new Date();
-    // If we're in December 2024, show December 2024
-    if (now.getFullYear() === 2024 && now.getMonth() === 11) {
+    const validDateRange = {
+      start: new Date(2024, 11, 1), // December 2024
+      end: new Date(2025, 11, 31)   // December 2025
+    };
+
+    // If current date is within our valid range, use it
+    if (isWithinInterval(now, validDateRange)) {
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    // If before December 2024, show December 2024
+    if (now < validDateRange.start) {
       return new Date(2024, 11, 1);
     }
-    // For any date in 2025, show that month in 2025
-    if (now.getFullYear() === 2025) {
-      return new Date(2025, now.getMonth(), 1);
-    }
-    // If we're beyond 2025, show December 2025
-    if (now.getFullYear() > 2025) {
-      return new Date(2025, 11, 1);
-    }
-    // Default to January 2025 if we're before December 2024
-    return new Date(2025, 0, 1);
-  };
+
+    // If after December 2025, show December 2025
+    return new Date(2025, 11, 1);
+  }
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -52,9 +55,7 @@ export const Calendar = () => {
       await syncEvents('18KbXdfe2EfjtP3YahNRs1uJauMoK0yZsJCwzeCBu1kc');
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Calendar synced successfully!');
-      // Reset to current month
       setCurrentDate(getCurrentDisplayMonth());
-      // Refresh the window to get fresh data
       window.location.reload();
     } catch (error) {
       console.error('Sync error:', error);
@@ -75,6 +76,8 @@ export const Calendar = () => {
           <CalendarHeader 
             currentDate={currentDate} 
             onDateChange={setCurrentDate}
+            minDate={new Date(2024, 11, 1)}
+            maxDate={new Date(2025, 11, 31)}
           />
           <Button 
             onClick={handleSync}

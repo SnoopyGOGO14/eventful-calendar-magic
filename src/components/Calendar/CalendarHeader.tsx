@@ -1,22 +1,44 @@
 import React from 'react';
-import { format, addMonths, subMonths } from 'date-fns';
+import { format, addMonths, subMonths, isBefore, isAfter } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CalendarHeaderProps {
   currentDate: Date;
   onDateChange: (date: Date) => void;
+  minDate: Date;
+  maxDate: Date;
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   currentDate,
   onDateChange,
+  minDate,
+  maxDate,
 }) => {
+  const handlePreviousMonth = () => {
+    const newDate = subMonths(currentDate, 1);
+    if (!isBefore(newDate, minDate)) {
+      onDateChange(newDate);
+    }
+  };
+
+  const handleNextMonth = () => {
+    const newDate = addMonths(currentDate, 1);
+    if (!isAfter(newDate, maxDate)) {
+      onDateChange(newDate);
+    }
+  };
+
+  const isPreviousDisabled = isBefore(subMonths(currentDate, 1), minDate);
+  const isNextDisabled = isAfter(addMonths(currentDate, 1), maxDate);
+
   return (
     <div className="flex items-center justify-between mb-4 relative h-16">
       <Button
         variant="outline"
-        onClick={() => onDateChange(subMonths(currentDate, 1))}
+        onClick={handlePreviousMonth}
+        disabled={isPreviousDisabled}
         className="absolute left-8"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -30,7 +52,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       
       <Button
         variant="outline"
-        onClick={() => onDateChange(addMonths(currentDate, 1))}
+        onClick={handleNextMonth}
+        disabled={isNextDisabled}
         className="absolute right-8"
       >
         <ChevronRight className="h-4 w-4" />
