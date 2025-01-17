@@ -337,10 +337,12 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
   try {
-    // Update the range to use the correct sheet name and encode it properly
-    const sheetName = encodeURIComponent('338 Cal Copy');
+    // Update the range to properly format the sheet name with single quotes
+    const sheetName = "'338 Cal Copy'";
+    const range = encodeURIComponent(`${sheetName}!A:F`);
+    
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${sheetName}!A:F&includeGridData=true`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${range}&includeGridData=true`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
