@@ -337,8 +337,8 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
   try {
-    // Encode the sheet name properly for the Google Sheets API
-    const sheetName = encodeURIComponent('338 Cal Copy');
+    // Sheet names with spaces must be wrapped in single quotes
+    const sheetName = "'338 Cal Copy'";
     const range = `${sheetName}!A:F`;
     
     console.log('Fetching values with range:', range);
