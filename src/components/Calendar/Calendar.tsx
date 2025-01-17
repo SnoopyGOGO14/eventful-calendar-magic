@@ -56,7 +56,6 @@ export const Calendar = () => {
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Calendar synced successfully!');
       setCurrentDate(getCurrentDisplayMonth());
-      window.location.reload();
     } catch (error) {
       console.error('Sync error:', error);
       toast.error('Failed to sync calendar. Please try again.');
