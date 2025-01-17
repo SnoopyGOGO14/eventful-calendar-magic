@@ -5,14 +5,14 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   
   try {
     // Format the sheet name properly for the Google Sheets API
-    const rawSheetName = '338 Cal Copy';
-    // Enclose sheet name in single quotes and encode for URL
-    const encodedRange = encodeURIComponent(`'${rawSheetName}'!A:F`);
+    const sheetName = '338 Cal Copy';
+    // Encode the range in the format that Google Sheets API expects
+    const range = encodeURIComponent(`'${sheetName}'!A:F`).replace(/'/g, '%27');
     
-    console.log('Using encoded range:', encodedRange);
+    console.log('Using encoded range:', range);
     
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -30,9 +30,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     const data = await response.json();
     console.log('Successfully fetched sheet data');
     
-    // Get formatting information using the same encoded range
+    // Get formatting information using the same range format
     const formattingResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodedRange}&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${range}&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
