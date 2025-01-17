@@ -6,8 +6,8 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   try {
     // Format the sheet name properly for the Google Sheets API
     const sheetName = '338 Cal Copy';
-    // Properly encode the range with single quotes around the sheet name
-    const range = `'${sheetName}'!A:F`.replace(/'/g, "'");
+    // Use proper Google Sheets A1 notation for range
+    const range = encodeURIComponent(`'${sheetName}'!A:F`);
     
     console.log('Using range:', range);
     
