@@ -337,17 +337,14 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
   try {
-    // The sheet name needs to be properly formatted for the API
-    // For sheet names with spaces, we need to:
-    // 1. Wrap the name in single quotes
-    // 2. Escape any single quotes in the name by doubling them
     const sheetName = "'338 Cal Copy'".replace(/'/g, "''");
     const range = `${sheetName}!A:F`;
     
-    console.log('Fetching data with range:', range);
+    console.log('Fetching values with range:', range);
     
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?includeGridData=true`,
+    // First API call: Get values
+    const valuesResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
@@ -355,53 +352,45 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Google Sheets API error: ${errorText}`);
+    if (!valuesResponse.ok) {
+      const errorText = await valuesResponse.text();
+      console.error('Values API error:', errorText);
       throw new Error(`Google Sheets API error: ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('Sheet info:', {
-      id: data.spreadsheetId,
-      title: data.properties?.title,
-      sheets: data.sheets?.map(s => s.properties?.title)
-    });
-    
-    const allValues: string[][] = [];
-    const allFormatting: any[] = [];
-    
-    data.sheets?.forEach(sheet => {
-      const gridData = sheet?.data?.[0];
-      if (gridData) {
-        const yearMatch = sheet.properties?.title.match(/\d{4}/);
-        const sheetYear = yearMatch ? yearMatch[0] : '2025';
-        
-        const values = gridData.rowData?.map(row => {
-          const cells = row.values?.map(cell => cell.formattedValue || '');
-          cells._sheetYear = sheetYear;
-          return cells;
-        }) || [];
-        
-        const formatting = gridData.rowData?.map(row => ({
-          values: [{
-            userEnteredFormat: {
-              backgroundColor: row.values?.[0]?.userEnteredFormat?.backgroundColor
-            }
-          }]
-        })) || [];
-        
-        allValues.push(...values);
-        allFormatting.push(...formatting);
+    const valuesData = await valuesResponse.json();
+    console.log('Successfully fetched values data');
+
+    // Second API call: Get formatting
+    console.log('Fetching formatting data');
+    const formattingResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
       }
-    });
+    );
+
+    if (!formattingResponse.ok) {
+      const errorText = await formattingResponse.text();
+      console.error('Formatting API error:', errorText);
+      throw new Error(`Google Sheets API error: ${errorText}`);
+    }
+
+    const formattingData = await formattingResponse.json();
+    console.log('Successfully fetched formatting data');
     
-    if (!allValues.length) {
+    // Extract the values and formatting
+    const values = valuesData.values || [];
+    const formatting = formattingData.sheets?.[0]?.data?.[0]?.rowData || [];
+
+    if (!values.length) {
       throw new Error('No data found in sheets');
     }
     
-    console.log(`Found total ${allValues.length} rows of data`);
-    return { values: allValues, formatting: allFormatting };
+    console.log(`Found total ${values.length} rows of data`);
+    return { values, formatting };
   } catch (error) {
     console.error('Error fetching sheet data:', error);
     throw error;
