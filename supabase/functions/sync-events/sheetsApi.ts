@@ -337,8 +337,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
   try {
+    // Update the range to specifically target the 'STUDIO 338 - 2025' sheet
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='STUDIO 338 - 2025'!A:F&ranges='STUDIO 338 - 2026'!A:F&includeGridData=true`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges='Cal Copy'!A:F&includeGridData=true`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
