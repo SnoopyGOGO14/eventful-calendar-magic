@@ -30,8 +30,8 @@ serve(async (req) => {
     const { values, formatting } = await fetchSheetData(spreadsheetId, accessToken)
 
     console.log('Parsing rows...')
-    const events = parseSheetRows(values, formatting)
-    console.log(`Found ${events.length} valid events`)
+    const newEvents = parseSheetRows(values, formatting)
+    console.log(`Found ${newEvents.length} valid events`)
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -43,59 +43,94 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     console.log('Supabase client initialized')
 
-    // Clear existing events before inserting new ones
-    console.log('Clearing existing events...')
-    const { error: deleteError } = await supabase
+    // Get existing events
+    const { data: existingEvents, error: fetchError } = await supabase
       .from('events')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all events
-
-    if (deleteError) {
-      console.error('Error clearing existing events:', deleteError)
-      console.error('Error details:', deleteError.details)
-      console.error('Error hint:', deleteError.hint)
-      console.error('Error code:', deleteError.code)
-      throw new Error(`Failed to clear existing events: ${deleteError.message}`)
+      .select('id, _sheet_line_number')
+    
+    if (fetchError) {
+      throw new Error(`Failed to fetch existing events: ${fetchError.message}`)
     }
 
-    // Wait a moment to ensure deletion is complete
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // Create a map of existing events by line number
+    const existingEventMap = new Map(
+      existingEvents?.map(event => [event._sheet_line_number, event.id]) || []
+    )
 
-    console.log(`Inserting ${events.length} events...`)
-    const { error: insertError, data: insertedData } = await supabase
-      .from('events')
-      .insert(events.map(event => ({
-        date: event.date,
-        title: event.title,
-        status: event.status,
-        is_recurring: event.is_recurring,
-        room: event.room || null,
-        promoter: event.promoter || null,
-        capacity: event.capacity || null,
-        _sheet_line_number: event._sheet_line_number
-      })))
-      .select()
+    // Prepare batch operations
+    const toUpdate = []
+    const toInsert = []
+    const seenLineNumbers = new Set()
 
-    if (insertError) {
-      console.error('Error inserting events:', insertError)
-      console.error('Error details:', insertError.details)
-      console.error('Error hint:', insertError.hint)
-      console.error('Error code:', insertError.code)
-      throw new Error(`Failed to insert events: ${insertError.message}`)
+    // Sort events into updates and inserts
+    for (const event of newEvents) {
+      const lineNumber = event._sheet_line_number
+      seenLineNumbers.add(lineNumber)
+
+      if (existingEventMap.has(lineNumber)) {
+        toUpdate.push({
+          ...event,
+          id: existingEventMap.get(lineNumber)
+        })
+      } else {
+        toInsert.push(event)
+      }
     }
 
-    console.log('Successfully inserted new events:', {
-      count: insertedData?.length || 0,
-      firstEvent: insertedData?.[0],
-      lastEvent: insertedData?.[insertedData.length - 1]
-    })
+    // Find events to delete (those not in the new data)
+    const toDelete = existingEvents
+      ?.filter(event => !seenLineNumbers.has(event._sheet_line_number))
+      .map(event => event.id) || []
 
-    console.log('Successfully inserted new events')
+    console.log(`Processing: ${toUpdate.length} updates, ${toInsert.length} inserts, ${toDelete.length} deletes`)
+
+    // Perform updates
+    if (toUpdate.length > 0) {
+      const { error: updateError } = await supabase
+        .from('events')
+        .upsert(toUpdate)
+
+      if (updateError) {
+        console.error('Error updating events:', updateError)
+        throw new Error(`Failed to update events: ${updateError.message}`)
+      }
+    }
+
+    // Perform inserts
+    if (toInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from('events')
+        .insert(toInsert)
+
+      if (insertError) {
+        console.error('Error inserting events:', insertError)
+        throw new Error(`Failed to insert events: ${insertError.message}`)
+      }
+    }
+
+    // Perform deletes
+    if (toDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('events')
+        .delete()
+        .in('id', toDelete)
+
+      if (deleteError) {
+        console.error('Error deleting events:', deleteError)
+        throw new Error(`Failed to delete events: ${deleteError.message}`)
+      }
+    }
+
+    console.log('Sync completed successfully')
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Events synced successfully',
-        eventCount: events.length
+        stats: {
+          updated: toUpdate.length,
+          inserted: toInsert.length,
+          deleted: toDelete.length
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
