@@ -337,8 +337,8 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
   try {
-    const sheetName = "'338 Cal Copy'".replace(/'/g, "''");
-    const range = `${sheetName}!A:F`;
+    const sheetName = '338 Cal Copy';  // Remove the extra quotes
+    const range = `'${sheetName}'!A:F`;  // Properly format the range with single quotes
     
     console.log('Fetching values with range:', range);
     
