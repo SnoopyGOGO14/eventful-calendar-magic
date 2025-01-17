@@ -337,12 +337,17 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   console.log('Starting to fetch sheet data from spreadsheet:', spreadsheetId);
   
   try {
-    // Properly encode the sheet name with spaces for the Google Sheets API
-    const sheetName = "'338%20Cal%20Copy'";
+    // The sheet name needs to be properly formatted for the API
+    // For sheet names with spaces, we need to:
+    // 1. Wrap the name in single quotes
+    // 2. Escape any single quotes in the name by doubling them
+    const sheetName = "'338 Cal Copy'".replace(/'/g, "''");
     const range = `${sheetName}!A:F`;
     
+    console.log('Fetching data with range:', range);
+    
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${range}&includeGridData=true`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?includeGridData=true`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
