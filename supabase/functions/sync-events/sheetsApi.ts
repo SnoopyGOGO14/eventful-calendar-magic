@@ -2,12 +2,7 @@ import { Event } from './types.ts';
 
 export async function fetchSheetData(spreadsheetId: string, accessToken: string) {
   try {
-    // Use a specific sheet range format with sheet ID
-    const range = 'A:F';
-    
-    console.log('Fetching sheet data with range:', range);
-    
-    // First, get the sheets metadata to find the correct sheet ID
+    // First, get the sheets metadata to find the correct sheet
     const metadataResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`,
       {
@@ -25,18 +20,23 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     }
 
     const metadata = await metadataResponse.json();
-    const sheet = metadata.sheets.find((s: any) => s.properties.title === '338 Cal Copy');
+    console.log('Spreadsheet metadata:', metadata);
     
+    // Find the sheet titled "338 Cal Copy"
+    const sheet = metadata.sheets.find((s: any) => s.properties.title === '338 Cal Copy');
     if (!sheet) {
       throw new Error('Sheet "338 Cal Copy" not found in spreadsheet');
     }
 
-    const sheetId = sheet.properties.sheetId;
-    console.log('Found sheet ID:', sheetId);
-    
-    // Now fetch the actual data using the sheet ID
+    // Construct the range using proper A1 notation
+    // Escape single quotes in sheet name and wrap in single quotes
+    const sheetName = sheet.properties.title.replace(/'/g, "''");
+    const range = `'${sheetName}'!A:F`;
+    console.log('Using range:', range);
+
+    // Fetch the data with the properly formatted range
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -54,9 +54,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     const data = await response.json();
     console.log('Successfully fetched sheet data');
     
-    // Get formatting information
+    // Get formatting information using the same properly formatted range
     const formattingResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${range}&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
