@@ -5,14 +5,13 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
   
   try {
     // Format the sheet name properly for the Google Sheets API
-    const sheetName = '338 Cal Copy';
-    // Use proper sheet range format with escaped single quotes
-    const range = `'${sheetName}'!A:F`;
+    const sheetName = encodeURIComponent('338 Cal Copy');
+    const range = `${sheetName}!A:F`;
     
     console.log('Fetching values with range:', range);
     
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -30,9 +29,9 @@ export async function fetchSheetData(spreadsheetId: string, accessToken: string)
     const data = await response.json();
     console.log('Successfully fetched sheet data');
     
-    // Get formatting information using the same properly formatted range
+    // Get formatting information using the same range format
     const formattingResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${range}&fields=sheets.data.rowData.values.userEnteredFormat.backgroundColor`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
